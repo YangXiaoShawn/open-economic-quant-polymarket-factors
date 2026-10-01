@@ -6,9 +6,9 @@ the mechanical artifacts that dominate prediction-market backtests are removed?
 
 **Answer.** Yes, modestly. Five artifacts inflate a 30-day momentum IC eightfold
 (−0.44 → −0.054). After they are fixed, short-horizon **reversal**, **volatility** and
-**illiquidity** survive out of sample and beyond price-level controls; the best
-three-factor structure (reversal + illiquidity + time to resolution) has a price-neutral
-IC of 0.063 (t = 8.4). Capacity is tiny: about $100–200 per position.
+**illiquidity** survive out of sample and beyond price-level controls (price-neutral
+|IC| 0.032–0.072 on the held-out second half). Capacity is tiny: about $100–200 per
+position.
 
 Evidence grade: **backtest** (association). The full report is
 [`REPORT_EN.md`](REPORT_EN.md) (English) and [`REPORT.md`](REPORT.md) (Chinese),
@@ -81,9 +81,11 @@ agree: MOM −140 bp per 5 days per σ (t = −8.3), VOL −209 bp (t = −6.4),
 
 - Reversal is concentrated in **Sports** (|IC| 0.060, t = 3.7) and **Politics**
   (0.051, t = 3.4) and absent in Crypto and Finance markets.
-- An exhaustive search over 35 three-factor combinations (built on the first half)
-  ranks **MOM + LIQ + TTR** first: price-neutral IC 0.063 (t = 8.4), long–short spread
-  +4.31 probability points per 5 days (t = 6.0).
+- An exhaustive search over 35 three-factor combinations ranks **MOM + LIQ + TTR**
+  first: price-neutral IC 0.063 (t = 8.4), long–short spread +4.31 probability points
+  per 5 days (t = 6.0). Factor signs come from the first half, but the ranking itself is
+  computed on the second half (`threefactor_search.py`), so this is the best of 35 on the
+  evaluation sample, **not an out-of-sample result**.
 - **Negative result:** within multi-leg events (690 markets, 75 events, 175 days),
   sibling-market momentum has no next-24-hour predictability (IC 0.004, t = 0.3);
   sibling information is priced within the hour.
