@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polymarket Arb Scanner v2</title>
+<style>
+/* ── Reset & variables ──────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0d1117;
+  --surface:   #161b22;
+  --surface2:  #1c2128;
+  --border:    #30363d;
+  --text:      #e6edf3;
+  --muted:     #8b949e;
+  --accent:    #58a6ff;
+
+  --short:     #f85149;
+  --long:      #3fb950;
+  --watch:     #d29922;
+  --neutral:   #6e7681;
+
+  --short-bg:  rgba(248,81,73,0.10);
+  --long-bg:   rgba(63,185,80,0.10);
+  --watch-bg:  rgba(210,153,34,0.10);
+}
+
+body {
+  font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  min-height: 100vh;
+}
+
+/* ── Header ────────────────────────────────────────────────────── */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+}
+
+.header-row1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  flex-wrap: wrap;
+  padding: 6px 0;
+}
+
+.logo {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--accent);
+}
+.logo span { color: var(--muted); font-weight: 400; }
+
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+}
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--neutral);
+  flex-shrink: 0;
+}
+.status-dot.live    { background: var(--long);  animation: pulse 2s infinite; }
+.status-dot.fetching{ background: var(--watch); animation: pulse 0.8s infinite; }
+.status-dot.error   { background: var(--short); }
+
+@keyframes pulse {
+  0%,100% { opacity:1; } 50% { opacity:0.4; }
+}
+
+.header-spacer { flex: 1; }
+
+.update-info {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+}
+.update-info b { color: var(--text); }
+
+.btn-refresh {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  transition: border-color 0.2s, background 0.2s;
+}
+.btn-refresh:hover { border-color: var(--accent); background: rgba(88,166,255,0.08); }
+.btn-refresh:active { transform: scale(0.97); }
+
+.btn-full {
+  background: rgba(248,81,73,0.12);
+  border: 1px solid rgba(248,81,73,0.4);
+  color: #f85149;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 600;
+  transition: border-color 0.2s, background 0.2s;
+}
+.btn-full:hover { background: rgba(248,81,73,0.22); border-color: #f85149; }
+.btn-full:active { transform: scale(0.97); }
+
+.header-row2 {
+  display: flex;
+  gap: 24px;
+  height: 36px;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.stat { display: flex; gap: 5px; }
+.stat b { color: var(--text); }
+.stat-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(88,166,255,0.15);
+  color: var(--accent);
+}
+.stat-badge.active { background: rgba(63,185,80,0.15); color: var(--long); }
+
+/* ── Main layout ────────────────────────────────────────────────── */
+main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 16px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; }
+}
+
+/* ── Column ─────────────────────────────────────────────────────── */
+.col-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px 8px 0 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.col-header .count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+}
+.col-header .count.has-entry { background: rgba(63,185,80,0.15); border-color: var(--long); color: var(--long); }
+
+.signal-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+  min-height: 200px;
+}
+
+/* ── Signal card ────────────────────────────────────────────────── */
+.card {
+  border-bottom: 1px solid var(--border);
+  padding: 14px;
+  transition: background 0.15s;
+}
+.card:last-child { border-bottom: none; }
+.card:hover { background: var(--surface2); }
+
+.card.enter-short { border-left: 3px solid var(--short); }
+.card.enter-long  { border-left: 3px solid var(--long); }
+.card.watch       { border-left: 3px solid var(--watch); }
+.card.neutral     { border-left: 3px solid var(--border); opacity: 0.65; }
+
+/* Card header row */
+.card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 9px;
+}
+
+.signal-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.enter-short .signal-badge { background: rgba(248,81,73,0.18); color: var(--short); border: 1px solid rgba(248,81,73,0.3); }
+.enter-long  .signal-badge { background: rgba(63,185,80,0.18); color: var(--long);  border: 1px solid rgba(63,185,80,0.3); }
+.watch       .signal-badge { background: rgba(210,153,34,0.18);color: var(--watch); border: 1px solid rgba(210,153,34,0.3); }
+.neutral     .signal-badge { background: rgba(110,118,129,0.18);color:var(--neutral);border:1px solid rgba(110,118,129,0.3); }
+
+.z-value {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.enter-short .z-value { color: var(--short); }
+.enter-long  .z-value { color: var(--long); }
+.watch       .z-value { color: var(--watch); }
+.neutral     .z-value { color: var(--muted); }
+
+/* Market names */
+.market-pair {
+  margin-bottom: 10px;
+}
+.market-name {
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.market-name.a { color: var(--text); }
+.market-name.b { color: var(--muted); margin-top: 3px; }
+.vs-label {
+  display: inline-block;
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin: 3px 0;
+}
+
+/* Portfolio market */
+.basket-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+}
+.market-single {
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 8px;
+}
+
+/* ── Z-score gauge ──────────────────────────────────────────────── */
+.gauge-wrap { margin: 8px 0 4px; }
+
+.gauge-track {
+  position: relative;
+  height: 6px;
+  background: var(--surface2);
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  overflow: visible;
+}
+.gauge-fill {
+  position: absolute;
+  height: 100%;
+  top: 0;
+  border-radius: 3px;
+  opacity: 0.55;
+}
+.gauge-tick {
+  position: absolute;
+  width: 1px;
+  height: 12px;
+  top: -3px;
+  background: rgba(255,255,255,0.25);
+}
+.gauge-dot {
+  position: absolute;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  top: -2px;
+  transform: translateX(-50%);
+  border: 2px solid var(--bg);
+}
+.gauge-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 3px;
+  padding: 0 2px;
+}
+
+/* ── Metrics row ────────────────────────────────────────────────── */
+.metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 9px 0;
+}
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.metric label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+.metric value {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* price comparison */
+.price-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.price-item { display: flex; gap: 4px; }
+.price-item label { color: var(--muted); }
+.price-item value { color: var(--text); font-weight: 600; }
+
+/* Action hint */
+.action-hint {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 6px 8px;
+  background: var(--surface2);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.action-hint b { color: var(--text); }
+
+/* ── Loading / empty states ─────────────────────────────────────── */
+.state-msg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--muted);
+  text-align: center;
+}
+.spinner {
+  width: 28px; height: 28px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty-icon { font-size: 28px; opacity: 0.4; }
+.state-msg p { font-size: 12px; max-width: 260px; line-height: 1.6; }
+
+/* countdown */
+#countdown { color: var(--muted); font-size: 11px; }
+#countdown b { color: var(--text); }
+
+/* filter bar */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+  font-size: 11px;
+  color: var(--muted);
+}
+.filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  user-select: none;
+}
+.filter-toggle input { cursor: pointer; accent-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<header>
+  <div class="header-row1">
+    <div class="logo">POLYMARKET <span>ARB</span></div>
+    <a href="/" style="color:var(--text);text-decoration:none;font-size:12px;padding:4px 10px;border-radius:5px;border:1px solid var(--border)">实时扫描</a>
+    <a href="/backtest" style="color:var(--muted);text-decoration:none;font-size:12px;padding:4px 10px;border-radius:5px;border:1px solid transparent">回测报告</a>
+    <a href="/factors" style="color:var(--muted);text-decoration:none;font-size:12px;padding:4px 10px;border-radius:5px;border:1px solid transparent">因子研究</a>
+    <a href="/threefactor" style="color:var(--muted);text-decoration:none;font-size:12px;padding:4px 10px;border-radius:5px;border:1px solid transparent">三因子模型</a>
+    <a href="/shortwinners" style="color:var(--muted);text-decoration:none;font-size:12px;padding:4px 10px;border-radius:5px;border:1px solid transparent">做空赢家</a>
+    <div class="status-pill">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Connecting…</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="update-info">
+      <span id="last-update-label">Updated: <b id="last-update">—</b></span>
+      &nbsp;·&nbsp;
+      <span id="countdown"></span>
+      &nbsp;<span id="refresh-badge" style="font-size:10px;padding:1px 5px;border-radius:3px;display:none"></span>
+    </div>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button class="btn-refresh" onclick="sendRefresh()">⟳ Z刷新</button>
+      <button class="btn-full" onclick="sendForceRefresh()" title="清除缓存，重新获取全量数据">↺ 全量刷新</button>
+    </div>
+  </div>
+
+  <div class="header-row2">
+    <div class="stat">
+      Markets: <b id="st-markets">—</b>
+    </div>
+    <div class="stat">
+      Pairs: <b id="st-pairs">—</b>
+      <span class="stat-badge active" id="st-pairs-entry" style="display:none"></span>
+    </div>
+    <div class="stat">
+      Baskets: <b id="st-baskets">—</b>
+    </div>
+    <div class="stat">
+      Port Signals: <b id="st-port">—</b>
+      <span class="stat-badge active" id="st-port-entry" style="display:none"></span>
+    </div>
+    <div class="stat" style="margin-left:auto; color:var(--muted)">
+      <span id="date-range">—</span>
+    </div>
+  </div>
+</header>
+
+<!-- ── Main ───────────────────────────────────────────────────── -->
+<!-- ── 做空赢家 TOP5 实时条 ── -->
+<div style="padding:10px 20px 0">
+  <div style="background:var(--surface);border:1px solid rgba(248,81,73,0.45);border-radius:8px;padding:9px 14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <span style="color:var(--short);font-weight:700;font-size:12px;white-space:nowrap">🎯 做空赢家 TOP5</span>
+    <span id="sw-strip" style="color:var(--muted);font-size:12px;line-height:1.9">加载中…</span>
+    <span style="flex:1"></span>
+    <a href="/shortwinners" style="color:var(--accent);font-size:12px;text-decoration:none;white-space:nowrap">查看全部 →</a>
+  </div>
+</div>
+
+<main>
+
+  <!-- Pair Trading Column -->
+  <div>
+    <div class="col-header">
+      <span>📈 Pair Trading Signals</span>
+      <span class="count" id="pair-count">0</span>
+    </div>
+    <div class="signal-list" id="pair-list">
+      <div class="state-msg">
+        <div class="spinner"></div>
+        <p id="pair-state-msg">Connecting to scanner…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Portfolio Arb Column -->
+  <div>
+    <div class="col-header">
+      <span>🧺 Portfolio Arb Signals</span>
+      <span class="count" id="port-count">0</span>
+    </div>
+    <div class="signal-list" id="port-list">
+      <div class="state-msg">
+        <div class="spinner"></div>
+        <p id="port-state-msg">Connecting to scanner…</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────
+const WS_URL = `ws://${location.host}/ws`;
+const ENTRY_Z = 2.0;
+
+const SIGNAL_LABELS = {
+  ENTER_SHORT: 'ENTER SHORT',
+  ENTER_LONG:  'ENTER LONG',
+  WATCH:       'WATCH',
+  NEUTRAL:     'NEUTRAL',
+};
+const SIGNAL_CLASS = {
+  ENTER_SHORT: 'enter-short',
+  ENTER_LONG:  'enter-long',
+  WATCH:       'watch',
+  NEUTRAL:     'neutral',
+};
+
+// ── WebSocket ──────────────────────────────────────────────────────
+let ws = null;
+let reconnectDelay = 2000;
+let nextRefreshTime = null;
+let countdownTimer = null;
+let lastRefreshType = 'full';
+
+function connect() {
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    reconnectDelay = 2000;
+    setDot('fetching', 'Connected — waiting for data…');
+  };
+
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'init' || msg.type === 'update') {
+      applyState(msg.data);
+    }
+    // heartbeat/pong: no-op
+  };
+
+  ws.onclose = () => {
+    setDot('neutral', `Disconnected — reconnecting in ${reconnectDelay/1000}s…`);
+    setTimeout(() => { connect(); }, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 1.5, 15000);
+  };
+
+  ws.onerror = () => ws.close();
+
+  // Keepalive ping every 20s
+  setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'ping' }));
+    }
+  }, 20000);
+}
+
+function sendRefresh() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'refresh' }));
+    setDot('fetching', 'Z-score refresh triggered…');
+  } else {
+    fetch('/api/refresh', { method: 'POST' });
+  }
+}
+
+function sendForceRefresh() {
+  setDot('fetching', 'Full refresh triggered (clearing cache)…');
+  fetch('/api/refresh?force=true', { method: 'POST' });
+}
+
+// ── State application ──────────────────────────────────────────────
+function applyState(data) {
+  const { status, status_msg, last_update, next_refresh, pair_signals, portfolio_signals, stats } = data;
+
+  // Status dot
+  setDot(status, status_msg);
+
+  // Last update time
+  if (last_update) {
+    const d = new Date(last_update);
+    document.getElementById('last-update').textContent =
+      d.toLocaleTimeString('zh-CN', { hour12: false });
+  }
+
+  // Next refresh countdown
+  if (next_refresh) {
+    nextRefreshTime = new Date(next_refresh);
+    startCountdown();
+  }
+
+  // Stats
+  if (stats && stats.n_markets) {
+    document.getElementById('st-markets').textContent = stats.n_markets;
+    document.getElementById('st-baskets').textContent = stats.n_baskets || '—';
+    document.getElementById('date-range').textContent = stats.date_range || '';
+    if (stats.refresh_type) lastRefreshType = stats.refresh_type;
+
+    const np = stats.n_pairs || 0;
+    const npe = stats.n_pairs_entry || 0;
+    document.getElementById('st-pairs').textContent = np;
+    const badgeP = document.getElementById('st-pairs-entry');
+    if (npe > 0) {
+      badgeP.textContent = `${npe} active`;
+      badgeP.style.display = '';
+    } else {
+      badgeP.style.display = 'none';
+    }
+
+    const npo = stats.n_port || 0;
+    const npoe = stats.n_port_entry || 0;
+    document.getElementById('st-port').textContent = npo;
+    const badgePo = document.getElementById('st-port-entry');
+    if (npoe > 0) {
+      badgePo.textContent = `${npoe} active`;
+      badgePo.style.display = '';
+    } else {
+      badgePo.style.display = 'none';
+    }
+  }
+
+  // Render signals
+  renderPairSignals(pair_signals || [], status);
+  renderPortfolioSignals(portfolio_signals || [], status);
+}
+
+// ── Status dot helper ──────────────────────────────────────────────
+function setDot(status, msg) {
+  const dot  = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+  dot.className = 'status-dot ' + status;
+  text.textContent = msg || status;
+}
+
+// ── Countdown ──────────────────────────────────────────────────────
+function startCountdown() {
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(updateCountdown, 1000);
+  updateCountdown();
+}
+
+function updateCountdown() {
+  if (!nextRefreshTime) return;
+  const secs = Math.max(0, Math.round((nextRefreshTime - Date.now()) / 1000));
+  const el   = document.getElementById('countdown');
+  const label = lastRefreshType === 'full' ? 'Full in' : 'z-score in';
+  if (secs === 0) {
+    el.innerHTML = `Next: <b>now</b>`;
+  } else {
+    const m = String(Math.floor(secs / 60)).padStart(2, '0');
+    const s = String(secs % 60).padStart(2, '0');
+    el.innerHTML = `${label}: <b>${m}:${s}</b>`;
+  }
+  // refresh badge
+  const badge = document.getElementById('refresh-badge');
+  if (lastRefreshType === 'full') {
+    badge.textContent = 'FULL';
+    badge.style.background = 'rgba(88,166,255,0.2)';
+    badge.style.color = '#58a6ff';
+  } else {
+    badge.textContent = 'z';
+    badge.style.background = 'rgba(63,185,80,0.15)';
+    badge.style.color = '#3fb950';
+  }
+  badge.style.display = '';
+}
+
+// ── Gauge rendering ────────────────────────────────────────────────
+function renderGauge(z, entryThr = 2.0) {
+  const clamped = Math.max(-4, Math.min(4, z));
+  const pct = (clamped + 4) / 8 * 100;          // 0–100
+  const center = 50;
+  const entryPos = (entryThr + 4)  / 8 * 100;   // e.g. 75%
+  const entryNeg = (-entryThr + 4) / 8 * 100;   // e.g. 25%
+
+  const isShort = z > 0;
+  const color = isShort ? 'var(--short)' : 'var(--long)';
+  const fillLeft  = isShort ? center    : pct;
+  const fillWidth = Math.abs(pct - center);
+
+  return `
+    <div class="gauge-wrap">
+      <div class="gauge-track">
+        <div class="gauge-fill" style="left:${fillLeft}%;width:${fillWidth}%;background:${color}"></div>
+        <div class="gauge-tick" style="left:${entryNeg}%"></div>
+        <div class="gauge-tick" style="left:${entryPos}%"></div>
+        <div class="gauge-dot"  style="left:${pct}%;background:${color}"></div>
+      </div>
+      <div class="gauge-labels">
+        <span>-4</span><span>-2</span><span>0</span><span>+2</span><span>+4</span>
+      </div>
+    </div>`;
+}
+
+// ── Pair signal cards ──────────────────────────────────────────────
+function renderPairSignals(signals, status) {
+  const list  = document.getElementById('pair-list');
+  const count = document.getElementById('pair-count');
+
+  if (status === 'initializing' || status === 'fetching' || status === 'computing') {
+    list.innerHTML = `<div class="state-msg">
+      <div class="spinner"></div>
+      <p>${escHtml(currentStatusMsg())}</p>
+    </div>`;
+    count.textContent = '…';
+    return;
+  }
+
+  count.textContent = signals.length;
+  count.classList.toggle('has-entry', signals.some(s => s.signal.startsWith('ENTER')));
+
+  if (!signals.length) {
+    list.innerHTML = `<div class="state-msg">
+      <div class="empty-icon">🔍</div>
+      <p>No cointegrated pairs found in current scan.</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = signals.map(s => {
+    const cls   = SIGNAL_CLASS[s.signal] || 'neutral';
+    const label = SIGNAL_LABELS[s.signal] || s.signal;
+    const sign  = s.zscore >= 0 ? '+' : '';
+    const action = pairAction(s);
+    return `
+    <div class="card ${cls}">
+      <div class="card-top">
+        <span class="signal-badge">${label}</span>
+        <span class="z-value">z = ${sign}${s.zscore.toFixed(2)}</span>
+      </div>
+      <div class="market-pair">
+        <div class="market-name a" title="${escHtml(s.market_a)}">${escHtml(truncate(s.market_a, 68))}</div>
+        <span class="vs-label">vs</span>
+        <div class="market-name b" title="${escHtml(s.market_b)}">${escHtml(truncate(s.market_b, 68))}</div>
+      </div>
+      ${renderGauge(s.zscore, ENTRY_Z)}
+      <div class="metrics">
+        <div class="metric"><label>Correlation</label><value>${s.correlation.toFixed(3)}</value></div>
+        <div class="metric"><label>Half-life</label><value>${s.half_life_days.toFixed(1)}d</value></div>
+        <div class="metric"><label>Coint p-val</label><value>${s.coint_pvalue.toFixed(4)}</value></div>
+        <div class="metric"><label>Hedge ratio</label><value>${s.hedge_ratio.toFixed(3)}</value></div>
+      </div>
+      <div class="action-hint">${action}</div>
+    </div>`;
+  }).join('');
+}
+
+function pairAction(s) {
+  if (s.signal === 'ENTER_SHORT') {
+    return `<b>Short A / Long B</b> — spread high (A overpriced vs B)`;
+  } else if (s.signal === 'ENTER_LONG') {
+    return `<b>Long A / Short B</b> — spread low (A underpriced vs B)`;
+  } else if (s.signal === 'WATCH') {
+    return `Monitor — approaching entry threshold`;
+  }
+  return `No actionable signal`;
+}
+
+// ── Portfolio signal cards ─────────────────────────────────────────
+function renderPortfolioSignals(signals, status) {
+  const list  = document.getElementById('port-list');
+  const count = document.getElementById('port-count');
+
+  if (status === 'initializing' || status === 'fetching' || status === 'computing') {
+    list.innerHTML = `<div class="state-msg">
+      <div class="spinner"></div>
+      <p>${escHtml(currentStatusMsg())}</p>
+    </div>`;
+    count.textContent = '…';
+    return;
+  }
+
+  count.textContent = signals.length;
+  count.classList.toggle('has-entry', signals.some(s => s.signal.startsWith('ENTER')));
+
+  if (!signals.length) {
+    list.innerHTML = `<div class="state-msg">
+      <div class="empty-icon">🧺</div>
+      <p>No basket deviations above threshold.</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = signals.map(s => {
+    const cls   = SIGNAL_CLASS[s.signal] || 'neutral';
+    const label = SIGNAL_LABELS[s.signal] || s.signal;
+    const sign  = s.zscore >= 0 ? '+' : '';
+    const dev   = s.deviation >= 0 ? `+${s.deviation.toFixed(4)}` : s.deviation.toFixed(4);
+    const action = portAction(s);
+    return `
+    <div class="card ${cls}">
+      <div class="card-top">
+        <span class="signal-badge">${label}</span>
+        <span class="z-value">z = ${sign}${s.zscore.toFixed(2)}</span>
+      </div>
+      <div class="basket-label">${escHtml(s.basket)}</div>
+      <div class="market-single" title="${escHtml(s.market)}">${escHtml(truncate(s.market, 72))}</div>
+      ${renderGauge(s.zscore, ENTRY_Z)}
+      <div class="price-row">
+        <div class="price-item"><label>Price:</label><value>$${s.price.toFixed(4)}</value></div>
+        <div class="price-item"><label>Basket:</label><value>$${s.basket_price.toFixed(4)}</value></div>
+        <div class="price-item"><label>Dev:</label><value>${dev}</value></div>
+      </div>
+      <div class="action-hint">${action}</div>
+    </div>`;
+  }).join('');
+}
+
+function portAction(s) {
+  if (s.signal === 'ENTER_SHORT') {
+    return `<b>Short market vs basket</b> — price $${s.price.toFixed(4)} above basket $${s.basket_price.toFixed(4)}`;
+  } else if (s.signal === 'ENTER_LONG') {
+    return `<b>Long market vs basket</b> — price $${s.price.toFixed(4)} below basket $${s.basket_price.toFixed(4)}`;
+  } else if (s.signal === 'WATCH') {
+    return `Approaching entry — deviation ${(Math.abs(s.deviation)*100).toFixed(2)}% from basket`;
+  }
+  return `No actionable signal`;
+}
+
+// ── Utilities ──────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function truncate(str, n) {
+  return str.length > n ? str.slice(0, n - 1) + '…' : str;
+}
+
+let _statusMsg = 'Initializing…';
+function currentStatusMsg() { return _statusMsg; }
+
+// Patch applyState to track status message for spinners
+const _origApply = applyState;
+window.applyState = function(data) {
+  _statusMsg = data.status_msg || _statusMsg;
+  _origApply(data);
+};
+
+// ── Boot ───────────────────────────────────────────────────────────
+connect();
+</script>
+<script>
+async function loadSWStrip() {
+  try {
+    const r = await fetch('/api/short-winners');
+    const d = await r.json();
+    const rows = (d.candidates || []).slice(0, 5);
+    document.getElementById('sw-strip').innerHTML = rows.length
+      ? rows.map(c =>
+          `<span style="margin-right:16px;white-space:nowrap">${c.question.slice(0, 26)}…` +
+          ` <span style="color:var(--short);font-weight:700">+${c.mom30_pct.toFixed(0)}%</span>` +
+          ` → NO <span style="color:var(--long);font-weight:700">${c.no_entry.toFixed(2)}</span></span>`
+        ).join('')
+      : '今日无候选通过过滤';
+  } catch (e) {}
+}
+loadSWStrip();
+setInterval(loadSWStrip, 5 * 60 * 1000);
+</script>
+</body>
+</html>

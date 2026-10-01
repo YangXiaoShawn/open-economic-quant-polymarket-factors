@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polymarket 因子研究</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #0d1117;
+  --surface:  #161b22;
+  --surface2: #1c2128;
+  --border:   #30363d;
+  --text:     #e6edf3;
+  --muted:    #8b949e;
+  --accent:   #58a6ff;
+  --short:    #f85149;
+  --long:     #3fb950;
+  --watch:    #d29922;
+  --purple:   #bc8cff;
+}
+body {
+  font-family: 'SF Mono','Consolas','Menlo',monospace;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+}
+.header-row1 {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 48px; flex-wrap: wrap; padding: 6px 0;
+}
+.logo { font-size: 15px; font-weight: 700; letter-spacing: 1px; color: var(--accent); }
+.logo span { color: var(--muted); font-weight: 400; }
+.header-spacer { flex: 1; }
+.nav-links { display: flex; gap: 4px; }
+.nav-link {
+  padding: 5px 12px; border-radius: 6px; cursor: pointer;
+  text-decoration: none; color: var(--muted); font-size: 12px;
+  border: 1px solid transparent; transition: all 0.2s;
+}
+.nav-link:hover { color: var(--text); border-color: var(--border); }
+.nav-link.active { color: var(--accent); border-color: var(--accent); background: rgba(88,166,255,0.08); }
+.btn {
+  padding: 5px 12px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border); color: var(--text);
+  background: none; font-size: 12px; font-family: inherit;
+  transition: all 0.2s;
+}
+.btn:hover { border-color: var(--accent); background: rgba(88,166,255,0.08); }
+.btn:active { transform: scale(0.97); }
+.header-row2 {
+  display: flex; gap: 20px; height: 36px; align-items: center;
+  border-top: 1px solid var(--border); font-size: 12px; color: var(--muted);
+}
+.stat { display: flex; gap: 5px; }
+.stat b { color: var(--text); }
+
+/* ── Layout ── */
+main { max-width: 1400px; margin: 0 auto; padding: 20px 16px; }
+.section { margin-bottom: 24px; }
+.section-title {
+  font-size: 13px; font-weight: 700; color: var(--muted);
+  letter-spacing: 0.5px; margin-bottom: 12px;
+  padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+}
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.grid-6 { display: grid; grid-template-columns: repeat(6,1fr); gap: 12px; }
+
+/* ── Cards ── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px;
+}
+.metric-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 16px;
+}
+.metric-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.metric-value { font-size: 22px; font-weight: 700; color: var(--text); }
+.metric-value.positive { color: var(--long); }
+.metric-value.negative { color: var(--short); }
+.metric-value.neutral  { color: var(--watch); }
+.metric-sub  { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.metric-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 10px; font-weight: 700; margin-top: 4px;
+}
+.badge-sig   { background: rgba(63,185,80,0.15);  color: var(--long); }
+.badge-insig { background: rgba(139,148,158,0.15); color: var(--muted); }
+
+/* ── Chart containers ── */
+.chart-wrap { position: relative; height: 280px; }
+.chart-wrap.tall { height: 340px; }
+.chart-wrap.short { height: 220px; }
+
+/* ── Factor tab bar ── */
+.tab-bar { display: flex; gap: 4px; margin-bottom: 12px; }
+.tab {
+  padding: 4px 14px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border); color: var(--muted); font-size: 11px;
+  background: none; font-family: inherit; transition: all 0.15s;
+}
+.tab.active { color: var(--accent); border-color: var(--accent); background: rgba(88,166,255,0.08); }
+.tab:hover:not(.active) { color: var(--text); }
+
+/* ── FM table ── */
+.fm-table {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+}
+.fm-table th {
+  text-align: left; padding: 8px 12px; color: var(--muted);
+  border-bottom: 1px solid var(--border); font-weight: 600;
+  font-size: 11px; text-transform: uppercase;
+}
+.fm-table td {
+  padding: 8px 12px; border-bottom: 1px solid rgba(48,54,61,0.5);
+}
+.fm-table tr:last-child td { border-bottom: none; }
+.sig-yes { color: var(--long); font-weight: 700; }
+.sig-no  { color: var(--muted); }
+
+/* ── Calibration note ── */
+.cal-note {
+  font-size: 11px; color: var(--muted); margin-top: 8px;
+  padding: 8px 12px; border-left: 2px solid var(--border);
+}
+
+/* ── Spinner ── */
+#spinner {
+  display: none; position: fixed; inset: 0; z-index: 999;
+  background: rgba(13,17,23,0.85);
+  align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+}
+#spinner.active { display: flex; }
+.spin-ring {
+  width: 48px; height: 48px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#spin-msg { color: var(--muted); font-size: 13px; }
+
+/* ── Error banner ── */
+#error-banner {
+  display: none; background: rgba(248,81,73,0.1);
+  border: 1px solid rgba(248,81,73,0.3); border-radius: 8px;
+  padding: 16px; margin-bottom: 20px; color: var(--short);
+}
+#error-banner.active { display: block; }
+
+/* ── Score list ── */
+.score-list { max-height: 200px; overflow-y: auto; }
+.score-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0; border-bottom: 1px solid rgba(48,54,61,0.4);
+  font-size: 11px;
+}
+.score-row:last-child { border-bottom: none; }
+.score-mkt  { color: var(--muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 8px; }
+.score-val  { color: var(--accent); font-weight: 600; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- ── Spinner ── -->
+<div id="spinner">
+  <div class="spin-ring"></div>
+  <span id="spin-msg">计算因子数据中…（通常 60-120 秒）</span>
+</div>
+
+<!-- ── Header ── -->
+<header>
+  <div class="header-row1">
+    <div class="logo">POLYMARKET <span>ARB</span></div>
+    <div class="nav-links">
+      <a href="/" class="nav-link">实时扫描</a>
+      <a href="/backtest" class="nav-link">回测报告</a>
+      <a href="/factors" class="nav-link active">因子研究</a>
+      <a href="/threefactor" class="nav-link">三因子模型</a>
+      <a href="/shortwinners" class="nav-link">做空赢家</a>
+    </div>
+    <div class="header-spacer"></div>
+    <button class="btn" onclick="loadFactors(true)">↺ 重新计算</button>
+  </div>
+  <div class="header-row2">
+    <div class="stat">周期 <b id="hdr-period">—</b></div>
+    <div class="stat">市场 <b id="hdr-markets">—</b></div>
+    <div class="stat">已结算 <b id="hdr-resolved">—</b></div>
+    <div class="stat">生成于 <b id="hdr-gen">—</b></div>
+    <div class="stat">耗时 <b id="hdr-elapsed">—</b></div>
+  </div>
+</header>
+
+<!-- ── Main ── -->
+<main>
+  <div id="error-banner"></div>
+
+  <!-- ── 扩样研究终版结论（2026-06-11，自动加载 logs/ 产出）── -->
+  <div class="section">
+    <div class="section-title">扩样研究终版结论 — 4000 市场 × 574 天本地全量数据（比下方 API 小样本更可靠）</div>
+    <div class="card">
+      <div style="color:var(--muted);font-size:12px;line-height:1.8;margin-bottom:10px">
+        方法论：skip-day 执行 / 入场可执行过滤（当日有成交且 0.05&lt;p&lt;0.95）/ 结算收益入样 /
+        价格中性双口径（前向 Δp 对 [1, p, p²] 截面残差化）。
+        <b style="color:#3fb950">真实因子：PM-MOM 反转、PM-VOL、PM-LIQ</b>；
+        <b style="color:#d29922">PM-EXTR / PM-SPREAD 的原始 IC 主要是价格水平效应</b>；
+        <b style="color:#f85149">PM-DRIFT 为数据假象</b>。
+        可交易原型：<a href="/shortwinners" style="color:var(--accent)">做空赢家</a>（空头腿净 +20.6%/5天，t=9.1，真实点差成本）。
+      </div>
+      <div style="overflow-x:auto"><table id="exp-table" style="width:100%;border-collapse:collapse;font-size:12px"><tr><td style="color:var(--muted);padding:8px">加载中…</td></tr></table></div>
+    </div>
+  </div>
+
+  <!-- ── 长期回测（扩样全量数据）── -->
+  <div class="section">
+    <div class="section-title">长期回测 — 因子五分位多空净值（4000 市场 × 574 天，5 天调仓，方向由前半段确定）</div>
+    <div class="card">
+      <div id="lt-note" style="color:var(--muted);font-size:11px;margin-bottom:8px">
+        累计 Δp 多空价差（百分点，稳健口径）。加载中…
+      </div>
+      <canvas id="ltDpChart" height="90"></canvas>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div style="color:var(--muted);font-size:11px;margin-bottom:8px">
+        净值增长倍数（按名字扣真实成交点差，token 杠杆口径，对数轴 — 受边界价名字放大，仅供参考；以上方 Δp 口径为准）
+      </div>
+      <canvas id="ltNetChart" height="90"></canvas>
+    </div>
+  </div>
+
+  <!-- ── 因子指标卡片 ── -->
+  <div class="section">
+    <div class="section-title">因子信息系数（IC）摘要</div>
+    <div class="grid-4" id="metric-cards">
+      <div class="metric-card">
+        <div class="metric-label">PM-MOM 概率动量</div>
+        <div class="metric-value" id="m-mom-ic">—</div>
+        <div class="metric-sub">平均 Spearman IC（30日）</div>
+        <div id="m-mom-badge"></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">PM-VOL 已实现波动率</div>
+        <div class="metric-value" id="m-vol-ic">—</div>
+        <div class="metric-sub">平均 Spearman IC（21日）</div>
+        <div id="m-vol-badge"></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">PM-LIQ 流动性</div>
+        <div class="metric-value" id="m-liq-ic">—</div>
+        <div class="metric-sub">平均 Spearman IC</div>
+        <div id="m-liq-badge"></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">PM-TTR 距结算时间</div>
+        <div class="metric-value" id="m-ttr-ic">—</div>
+        <div class="metric-sub">平均 Spearman IC</div>
+        <div id="m-ttr-badge"></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">PM-EXTR 价格极端性</div>
+        <div class="metric-value" id="m-extr-ic">—</div>
+        <div class="metric-sub">平均 Spearman IC（2×|p−0.5|）</div>
+        <div id="m-extr-badge"></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">PM-DRIFT 方向漂移</div>
+        <div class="metric-value" id="m-drift-ic">—</div>
+        <div class="metric-sub">平均 Spearman IC（14日方向一致性）</div>
+        <div id="m-drift-badge"></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">PM-SPREAD 买卖价差</div>
+        <div class="metric-value" id="m-spread-ic">—</div>
+        <div class="metric-sub">平均 Spearman IC（相对价差）</div>
+        <div id="m-spread-badge"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── IC 汇总柱状图 + 因子相关矩阵 ── -->
+  <div class="section grid-2">
+    <div class="card">
+      <div class="section-title">因子 IC 汇总（平均 ± 1SE）</div>
+      <div class="chart-wrap">
+        <canvas id="icBarChart"></canvas>
+      </div>
+      <div class="cal-note">
+        |IC| &gt; 0.05 且 |t| &gt; 2.0 表示因子具有统计显著性（绿色）
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title">因子得分相关矩阵（Spearman）</div>
+      <div class="chart-wrap" id="corr-wrap">
+        <canvas id="corrChart"></canvas>
+      </div>
+      <div class="cal-note">低相关性（&lt;0.3）说明因子信息互补，提高组合稳健性</div>
+    </div>
+  </div>
+
+  <!-- ── IC 时间序列 ── -->
+  <div class="section card">
+    <div class="section-title">IC 时间序列（Spearman，前向 5 日）</div>
+    <div class="tab-bar" id="ic-tabs">
+      <button class="tab active" onclick="switchIcTab('PM-MOM',this)">PM-MOM</button>
+      <button class="tab" onclick="switchIcTab('PM-VOL',this)">PM-VOL</button>
+      <button class="tab" onclick="switchIcTab('PM-LIQ',this)">PM-LIQ</button>
+      <button class="tab" onclick="switchIcTab('PM-TTR',this)">PM-TTR</button>
+      <button class="tab" onclick="switchIcTab('PM-EXTR',this)">PM-EXTR</button>
+      <button class="tab" onclick="switchIcTab('PM-DRIFT',this)">PM-DRIFT</button>
+      <button class="tab" onclick="switchIcTab('PM-SPREAD',this)">PM-SPREAD</button>
+    </div>
+    <div class="chart-wrap tall">
+      <canvas id="icLineChart"></canvas>
+    </div>
+  </div>
+
+  <!-- ── 动量多窗口对比 ── -->
+  <div class="section card">
+    <div class="section-title">PM-MOM 多窗口回溯对比（Walk-Forward IC，前向 5 日）</div>
+    <div class="chart-wrap">
+      <canvas id="momWindowChart"></canvas>
+    </div>
+    <div class="cal-note">各回溯窗口的平均 IC 及 t 统计量。14 日窗口通常捕捉反转效应最强。</div>
+  </div>
+
+  <!-- ── 校准曲线 + 分位组合收益 ── -->
+  <div class="section grid-2">
+    <div class="card">
+      <div class="section-title">PM-CAL 校准曲线（已结算市场）</div>
+      <div class="chart-wrap">
+        <canvas id="calChart"></canvas>
+      </div>
+      <div class="cal-note" id="cal-note-text">
+        45° 对角线 = 完美校准。偏离表示系统性高估/低估。
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title">因子分位组合收益（十分位，前向 5 日）</div>
+      <div class="tab-bar" id="decile-tabs">
+        <button class="tab active" onclick="switchDecileTab('PM-MOM',this)">PM-MOM</button>
+        <button class="tab" onclick="switchDecileTab('PM-VOL',this)">PM-VOL</button>
+        <button class="tab" onclick="switchDecileTab('PM-LIQ',this)">PM-LIQ</button>
+        <button class="tab" onclick="switchDecileTab('PM-TTR',this)">PM-TTR</button>
+        <button class="tab" onclick="switchDecileTab('PM-EXTR',this)">PM-EXTR</button>
+        <button class="tab" onclick="switchDecileTab('PM-DRIFT',this)">PM-DRIFT</button>
+        <button class="tab" onclick="switchDecileTab('PM-SPREAD',this)">PM-SPREAD</button>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="decileChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 多空组合净值曲线 ── -->
+  <div class="section card">
+    <div class="section-title">多空组合净值曲线（Long top 20% − Short bottom 20%，初始 $10,000）</div>
+    <div class="chart-wrap tall">
+      <canvas id="lsEquityChart"></canvas>
+    </div>
+  </div>
+
+  <!-- ── Fama-MacBeth 两步回归（Phase 2）── -->
+  <div class="section">
+    <div class="section-title">Fama-MacBeth 两步回归（Phase 2）— 截面 z-score 标准化，前向 5 日，Newey-West lags=4</div>
+
+    <!-- Row 1: 结果表 + R² 时间序列 -->
+    <div class="grid-2" style="margin-bottom:16px;">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:10px;">因子风险溢价（β̄_k）</div>
+        <table class="fm-table" id="fm-table">
+          <thead>
+            <tr>
+              <th>因子</th>
+              <th>溢价 bp/5d</th>
+              <th>t-stat (NW)</th>
+              <th>p-value</th>
+              <th>FM</th>
+              <th>单变量 IC</th>
+              <th>一致</th>
+            </tr>
+          </thead>
+          <tbody id="fm-tbody"></tbody>
+        </table>
+        <div class="cal-note" id="fm-note"></div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-bottom:10px;">截面 R² 时间序列（8 因子联合解释力）</div>
+        <div class="chart-wrap">
+          <canvas id="fmR2Chart"></canvas>
+        </div>
+        <div class="cal-note" id="fm-r2-note">每期截面 OLS 的 R²，均值约 10%。</div>
+      </div>
+    </div>
+
+    <!-- Row 2: IC vs FM 符号对比柱状图 + Beta 时间序列 -->
+    <div class="grid-2" style="margin-bottom:16px;">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:10px;">IC vs FM Beta 方向对比</div>
+        <div class="chart-wrap">
+          <canvas id="fmIcCompareChart"></canvas>
+        </div>
+        <div class="cal-note">蓝色=单变量 IC，橙色=FM Beta（均归一化到[-1,+1]）。方向相反说明存在因子交互效应。</div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-bottom:10px;">因子 Beta 时间序列（每期截面 OLS 系数）</div>
+        <div class="tab-bar" id="fm-beta-tabs">
+          <button class="tab active" onclick="switchFmBetaTab('PM-MOM',this)">PM-MOM</button>
+          <button class="tab" onclick="switchFmBetaTab('PM-VOL',this)">PM-VOL</button>
+          <button class="tab" onclick="switchFmBetaTab('PM-EXTR',this)">PM-EXTR</button>
+          <button class="tab" onclick="switchFmBetaTab('PM-DRIFT',this)">PM-DRIFT</button>
+          <button class="tab" onclick="switchFmBetaTab('PM-LIQ',this)">PM-LIQ</button>
+          <button class="tab" onclick="switchFmBetaTab('PM-TTR',this)">PM-TTR</button>
+          <button class="tab" onclick="switchFmBetaTab('PM-SPREAD',this)">PM-SPREAD</button>
+        </div>
+        <div class="chart-wrap short">
+          <canvas id="fmBetaChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: FM 合成得分 Top/Bottom -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:8px;">FM 合成信号 — 预测收益最高 Top 20（做多候选）</div>
+        <div class="cal-note" style="margin-bottom:8px;">FM_score = Σ β̄_k × z_k（当日截面 z-score × FM beta，单位 bp/5d）</div>
+        <div class="score-list" id="fm-composite-top"></div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-bottom:8px;">FM 合成信号 — 预测收益最低 Bottom 20（做空候选）</div>
+        <div class="cal-note" style="margin-bottom:8px;">FM_score 最负 → 模型预测未来 5 日收益最差</div>
+        <div class="score-list" id="fm-composite-bottom"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 今日因子得分 Top ── -->
+  <div class="section grid-4">
+    <div class="card">
+      <div class="section-title">PM-MOM Top 10（强反转信号）</div>
+      <div class="score-list" id="mom-top"></div>
+    </div>
+    <div class="card">
+      <div class="section-title">PM-VOL Top 10（高波动）</div>
+      <div class="score-list" id="vol-top"></div>
+    </div>
+    <div class="card">
+      <div class="section-title">PM-EXTR Top 10（最极端价格）</div>
+      <div class="score-list" id="extr-top"></div>
+    </div>
+    <div class="card">
+      <div class="section-title">PM-DRIFT Top 10（强势漂移）</div>
+      <div class="score-list" id="drift-top"></div>
+    </div>
+    <div class="card">
+      <div class="section-title">PM-LIQ Top 10（最非流动）</div>
+      <div class="score-list" id="liq-top"></div>
+    </div>
+    <div class="card">
+      <div class="section-title">PM-TTR Top 10（最远到期）</div>
+      <div class="score-list" id="ttr-top"></div>
+    </div>
+    <div class="card">
+      <div class="section-title">PM-SPREAD Top 10（价差最宽）</div>
+      <div class="score-list" id="spread-top"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── Shared chart defaults ──────────────────────────────────────────
+const DARK = {
+  bg:      '#0d1117', surface: '#161b22', border: '#30363d',
+  text:    '#e6edf3', muted:   '#8b949e', accent: '#58a6ff',
+  green:   '#3fb950', red:     '#f85149', purple: '#bc8cff', orange: '#d29922',
+};
+Chart.defaults.color = DARK.muted;
+Chart.defaults.borderColor = DARK.border;
+Chart.defaults.font.family = "'SF Mono','Consolas','Menlo',monospace";
+Chart.defaults.font.size   = 11;
+
+const commonScales = (xLabel='', yLabel='') => ({
+  x: { grid:{color:'rgba(48,54,61,0.5)'}, ticks:{color:DARK.muted},
+       title: xLabel ? {display:true, text:xLabel, color:DARK.muted} : {display:false} },
+  y: { grid:{color:'rgba(48,54,61,0.5)'}, ticks:{color:DARK.muted},
+       title: yLabel ? {display:true, text:yLabel, color:DARK.muted} : {display:false} },
+});
+
+// ── Global state ──────────────────────────────────────────────────
+let G = null;  // full API response
+let charts = {};
+
+// ── Utility ───────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fmt = (v, digits=3) => v == null ? '—' : Number(v).toFixed(digits);
+const fmtPct = v => v == null ? '—' : (Number(v) > 0 ? '+' : '') + Number(v).toFixed(2) + '%';
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+// ── Load data ─────────────────────────────────────────────────────
+async function loadFactors(force = false) {
+  $('spinner').classList.add('active');
+  $('error-banner').classList.remove('active');
+  try {
+    const url = '/api/factors' + (force ? '?force=true' : '');
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    G = data;
+    render(data);
+  } catch (e) {
+    const eb = $('error-banner');
+    eb.textContent = '加载失败: ' + e.message;
+    eb.classList.add('active');
+  } finally {
+    $('spinner').classList.remove('active');
+  }
+}
+
+// ── Render all ───────────────────────────────────────────────────
+function render(d) {
+  // Header
+  $('hdr-period').textContent  = `${d.period.start} → ${d.period.end}（${d.period.days}日）`;
+  $('hdr-markets').textContent = d.period.markets;
+  $('hdr-resolved').textContent= d.calibration?.n_resolved ?? '—';
+  $('hdr-gen').textContent     = d.generated_at.slice(0,19);
+  $('hdr-elapsed').textContent = d.elapsed_sec + 's';
+
+  // Metric cards
+  [
+    ['PM-MOM',    'm-mom-ic',    'm-mom-badge'],
+    ['PM-VOL',    'm-vol-ic',    'm-vol-badge'],
+    ['PM-LIQ',    'm-liq-ic',    'm-liq-badge'],
+    ['PM-TTR',    'm-ttr-ic',    'm-ttr-badge'],
+    ['PM-EXTR',   'm-extr-ic',   'm-extr-badge'],
+    ['PM-DRIFT',  'm-drift-ic',  'm-drift-badge'],
+    ['PM-SPREAD', 'm-spread-ic', 'm-spread-badge'],
+  ].forEach(([name, valId, badgeId]) => {
+    const f = d.factors[name];
+    if (!f) return;
+    const ic = f.mean_ic;
+    const el = $(valId);
+    el.textContent = fmt(ic, 3);
+    el.className = 'metric-value ' + (ic > 0.05 ? 'positive' : ic < -0.05 ? 'negative' : 'neutral');
+    const badge = $(badgeId);
+    if (f.significant) {
+      badge.innerHTML = `<span class="metric-badge badge-sig">SIG t=${fmt(f.ic_tstat,2)} p=${fmt(f.ic_pvalue,3)}</span>`;
+    } else {
+      badge.innerHTML = `<span class="metric-badge badge-insig">ns t=${fmt(f.ic_tstat,2)}</span>`;
+    }
+  });
+
+  // Charts
+  renderIcBar(d);
+  renderCorrHeatmap(d);
+  renderIcLine('PM-MOM', d);
+  renderMomWindows(d);
+  renderCalibration(d);
+  renderDecile('PM-MOM', d);
+  renderLsEquity(d);
+  renderFamaMacBeth(d);
+  renderScoreLists(d);
+}
+
+// ── IC Bar chart ─────────────────────────────────────────────────
+function renderIcBar(d) {
+  destroyChart('icBar');
+  const names = Object.keys(d.factors);
+  const means = names.map(n => d.factors[n].mean_ic);
+  const se    = names.map(n => {
+    const ic = d.factors[n].ic_series;
+    if (!ic || ic.length < 2) return 0;
+    const vals = ic.map(p => p.value);
+    const std  = Math.sqrt(vals.reduce((a,v)=>(a+(v-d.factors[n].mean_ic)**2),0)/vals.length);
+    return std / Math.sqrt(vals.length);
+  });
+  const colors = names.map(n => d.factors[n].significant ? DARK.green : DARK.muted);
+
+  charts['icBar'] = new Chart($('icBarChart'), {
+    type: 'bar',
+    data: {
+      labels: names,
+      datasets: [{
+        label: '平均 IC',
+        data: means,
+        backgroundColor: colors.map(c => c + '33'),
+        borderColor: colors,
+        borderWidth: 2,
+        errorBars: Object.fromEntries(names.map((n,i) => [n, {plus:se[i], minus:se[i]}])),
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false}, tooltip:{
+        callbacks:{label: ctx => ` IC = ${fmt(ctx.raw,4)}`}
+      }},
+      scales: {
+        ...commonScales('因子','平均 IC'),
+        y: { ...commonScales().y, min: -0.2, max: 0.2,
+             grid:{color:'rgba(48,54,61,0.5)'},
+             ticks:{color:DARK.muted} },
+      },
+    },
+  });
+}
+
+// ── Correlation heatmap (fake heatmap with bar matrix) ────────────
+function renderCorrHeatmap(d) {
+  destroyChart('corr');
+  const corr = d.factor_correlation;
+  if (!corr || Object.keys(corr).length === 0) return;
+
+  const names = Object.keys(corr);
+  // Flatten into label + value pairs for display
+  const labels = [];
+  const values = [];
+  const colors = [];
+  for (const r of names) {
+    for (const c of names) {
+      labels.push(`${r}→${c}`);
+      const v = corr[r]?.[c] ?? 0;
+      values.push(v);
+      colors.push(v > 0
+        ? `rgba(88,166,255,${Math.abs(v) * 0.8 + 0.1})`
+        : `rgba(248,81,73,${Math.abs(v) * 0.8 + 0.1})`);
+    }
+  }
+
+  charts['corr'] = new Chart($('corrChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label:'Spearman r', data:values,
+        backgroundColor: colors, borderColor: colors, borderWidth: 1 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: { legend:{display:false} },
+      scales: {
+        x: { min:-1, max:1, grid:{color:'rgba(48,54,61,0.5)'}, ticks:{color:DARK.muted} },
+        y: { grid:{display:false}, ticks:{color:DARK.muted, font:{size:10}} },
+      },
+    },
+  });
+}
+
+// ── IC Line chart ─────────────────────────────────────────────────
+let _icFactor = 'PM-MOM';
+function switchIcTab(name, el) {
+  document.querySelectorAll('#ic-tabs .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  _icFactor = name;
+  if (G) renderIcLine(name, G);
+}
+
+function renderIcLine(name, d) {
+  destroyChart('icLine');
+  const f    = d.factors[name];
+  const data = f.ic_series || [];
+  if (!data.length) return;
+
+  const labels = data.map(p => p.date);
+  const vals   = data.map(p => p.value);
+
+  // Rolling mean (window=5)
+  const roll = vals.map((_, i) => {
+    const w = vals.slice(Math.max(0, i-4), i+1);
+    return w.reduce((a,v) => a+v, 0) / w.length;
+  });
+
+  charts['icLine'] = new Chart($('icLineChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:'IC', data:vals, borderColor:DARK.accent+'88', backgroundColor:'transparent',
+          borderWidth:1, pointRadius:2, tension:0.2 },
+        { label:'滚动均值(5)', data:roll, borderColor:DARK.accent,
+          backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:0.3 },
+        { label:'IC=0', data:labels.map(()=>0), borderColor:DARK.border,
+          borderDash:[4,4], borderWidth:1, pointRadius:0 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{ labels:{color:DARK.muted, boxWidth:12} } },
+      scales: commonScales('日期','Spearman IC'),
+    },
+  });
+}
+
+// ── Calibration chart ─────────────────────────────────────────────
+function renderCalibration(d) {
+  destroyChart('cal');
+  const table = d.calibration?.table || [];
+  if (!table.length) {
+    $('cal-note-text').textContent = '暂无已结算市场数据（正在获取，请稍后刷新）';
+    return;
+  }
+
+  const rmse = d.calibration.rmse;
+  const mids = table.map(r => r.price_midpoint);
+  const acts = table.map(r => r.actual_rate);
+
+  // Perfect calibration line
+  const perfX = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+
+  charts['cal'] = new Chart($('calChart'), {
+    type: 'scatter',
+    data: {
+      datasets: [
+        { label:'实际 vs 预测', data: mids.map((x,i)=>({x, y:acts[i]})),
+          backgroundColor: DARK.accent+'cc', borderColor: DARK.accent,
+          borderWidth:1, pointRadius:6, pointHoverRadius:8 },
+        { label:'完美校准 (45°)', data: perfX.map(v=>({x:v, y:v})),
+          type:'line', borderColor: DARK.border, borderDash:[5,5],
+          borderWidth:1.5, pointRadius:0, fill:false },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend:{ labels:{color:DARK.muted, boxWidth:12} },
+        tooltip:{ callbacks:{ label: ctx =>
+          `价格 ${fmt(ctx.parsed.x,2)} → 实际 ${fmt(ctx.parsed.y,2)}`
+        }},
+      },
+      scales: {
+        x: { min:0, max:1, grid:{color:'rgba(48,54,61,0.5)'}, ticks:{color:DARK.muted},
+             title:{display:true, text:'市场预测价格', color:DARK.muted} },
+        y: { min:0, max:1, grid:{color:'rgba(48,54,61,0.5)'}, ticks:{color:DARK.muted},
+             title:{display:true, text:'实际 YES 结算率', color:DARK.muted} },
+      },
+    },
+  });
+
+  $('cal-note-text').textContent =
+    `校准 RMSE = ${rmse != null ? rmse.toFixed(4) : '—'}（已结算 ${d.calibration.n_resolved} 个市场）。` +
+    (rmse != null && rmse > 0.15
+      ? ' ⚠ RMSE > 0.15，存在显著系统性偏差（Longshot Bias？）'
+      : rmse != null ? ' ✅ RMSE < 0.15，市场基本有效' : '');
+}
+
+// ── Decile chart ──────────────────────────────────────────────────
+let _decileFactor = 'PM-MOM';
+function switchDecileTab(name, el) {
+  document.querySelectorAll('#decile-tabs .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  _decileFactor = name;
+  if (G) renderDecile(name, G);
+}
+
+function renderDecile(name, d) {
+  destroyChart('decile');
+  const f   = d.factors[name];
+  const dec = f.decile_returns || [];
+  if (!dec.length) return;
+
+  const labels = dec.map(r => `D${r.decile}`);
+  const vals   = dec.map(r => r.return_pct);
+  const colors = vals.map(v => v >= 0 ? DARK.green + '99' : DARK.red + '99');
+  const borders = vals.map(v => v >= 0 ? DARK.green : DARK.red);
+
+  charts['decile'] = new Chart($('decileChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label:'平均收益(%)', data:vals,
+        backgroundColor:colors, borderColor:borders, borderWidth:1.5 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false}, tooltip:{
+        callbacks:{ label: ctx => ` ${fmtPct(ctx.raw / 100)}` }
+      }},
+      scales: {
+        ...commonScales('因子分位','平均 5 日收益(%)'),
+        y: { grid:{color:'rgba(48,54,61,0.5)'}, ticks:{color:DARK.muted} },
+      },
+    },
+  });
+}
+
+// ── Long-Short equity ─────────────────────────────────────────────
+function renderLsEquity(d) {
+  destroyChart('lsEq');
+  const colors  = [DARK.accent, DARK.green, DARK.purple, DARK.orange, DARK.red, '#a0c4ff', '#caffbf'];
+  const dashes  = [[], [6,3], [3,3], [2,4], [5,2], [8,3], [4,2]];
+  const factors = ['PM-MOM','PM-VOL','PM-EXTR','PM-DRIFT','PM-LIQ','PM-TTR','PM-SPREAD'];
+
+  const datasets = factors.map((name, i) => {
+    const eq = d.factors[name]?.portfolio_equity || [];
+    return {
+      label: name,
+      data:  eq.map(p => p.value),
+      borderColor: colors[i],
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      borderDash: dashes[i],
+      pointRadius: 0,
+      tension: 0.2,
+    };
+  });
+
+  // Use common labels from first non-empty factor
+  const labels = (factors.map(n => d.factors[n]?.portfolio_equity).find(eq => eq && eq.length) || [])
+    .map(p => p.date);
+
+  if (!labels.length) return;
+
+  charts['lsEq'] = new Chart($('lsEquityChart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{ labels:{color:DARK.muted, boxWidth:20} } },
+      scales: commonScales('日期','净值 (USD)'),
+    },
+  });
+}
+
+// ── Score lists ───────────────────────────────────────────────────
+function renderScoreLists(d) {
+  const renderList = (id, factor, topN=10) => {
+    const el = $(id);
+    if (!el) return;
+    const scores = (d.factors[factor]?.scores || []).slice(0, topN);
+    el.innerHTML = scores.map(s =>
+      `<div class="score-row">
+        <span class="score-mkt" title="${escHtml(s.market)}">${escHtml(s.market)}</span>
+        <span class="score-val">${fmt(s.score, 4)}</span>
+      </div>`
+    ).join('');
+  };
+  renderList('mom-top',    'PM-MOM');
+  renderList('vol-top',    'PM-VOL');
+  renderList('extr-top',   'PM-EXTR');
+  renderList('drift-top',  'PM-DRIFT');
+  renderList('liq-top',    'PM-LIQ');
+  renderList('ttr-top',    'PM-TTR');
+  renderList('spread-top', 'PM-SPREAD');
+}
+
+// ── Multi-window MOM chart ────────────────────────────────────────
+function renderMomWindows(d) {
+  destroyChart('momWindow');
+  const mom = d.factors['PM-MOM'];
+  if (!mom || !mom.mom_windows) return;
+  const windows = Object.keys(mom.mom_windows).sort((a,b)=>+a-+b);
+  const means   = windows.map(w => mom.mom_windows[w].mean_ic);
+  const tstats  = windows.map(w => mom.mom_windows[w].ic_tstat);
+  const colors  = windows.map(w => mom.mom_windows[w].significant ? DARK.green : DARK.muted);
+
+  charts['momWindow'] = new Chart($('momWindowChart'), {
+    type: 'bar',
+    data: {
+      labels: windows.map(w => w + 'd'),
+      datasets: [
+        {
+          label: '平均 IC',
+          data: means,
+          backgroundColor: colors.map(c => c + '55'),
+          borderColor: colors,
+          borderWidth: 2,
+          yAxisID: 'y',
+        },
+        {
+          label: 't 统计量',
+          data: tstats,
+          type: 'line',
+          borderColor: DARK.accent,
+          pointBackgroundColor: DARK.accent,
+          pointRadius: 5,
+          tension: 0.3,
+          yAxisID: 'y2',
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: DARK.muted } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt(ctx.raw, 4) } },
+      },
+      scales: {
+        x: { grid:{color:'rgba(48,54,61,0.5)'}, ticks:{color:DARK.muted} },
+        y: { position:'left',  min:-0.25, max:0, grid:{color:'rgba(48,54,61,0.5)'}, ticks:{color:DARK.muted},
+             title:{display:true, text:'平均 IC', color:DARK.muted} },
+        y2:{ position:'right', grid:{display:false}, ticks:{color:DARK.accent},
+             title:{display:true, text:'t 统计量', color:DARK.accent} },
+      },
+    },
+  });
+}
+
+// ── Fama-MacBeth ─────────────────────────────────────────────────
+let _fmBetaFactor = 'PM-MOM';
+
+function switchFmBetaTab(name, el) {
+  document.querySelectorAll('#fm-beta-tabs .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  _fmBetaFactor = name;
+  if (G) renderFmBeta(name, G);
+}
+
+function renderFamaMacBeth(d) {
+  const fm = d.fama_macbeth;
+  if (!fm || !fm.factor_names || !fm.factor_names.length) {
+    $('fm-tbody').innerHTML = '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:16px">FM 数据不可用，请点击「重新计算」</td></tr>';
+    return;
+  }
+
+  const names  = fm.factor_names;
+  const fdata  = fm.factors || {};
+
+  // ── Table ──
+  const rows = names.map(k => {
+    const f  = fdata[k] || {};
+    const bp = f.premium_bp ?? 0;
+    const t  = f.t_statistic ?? 0;
+    const p  = f.p_value ?? 1;
+    const sig = f.significant;
+    const ic  = f.ic_mean;
+    const consistent = f.sign_consistent;
+
+    const bpStr = (bp >= 0 ? '+' : '') + bp.toFixed(1);
+    const tStr  = (t  >= 0 ? '+' : '') + fmt(t, 2);
+    const icStr = ic != null ? ((ic >= 0 ? '+' : '') + fmt(ic, 4)) : '—';
+    const conStr = consistent === null ? '—' : consistent ? '<span class="sig-yes">✓</span>' : '<span class="sig-no">✗</span>';
+
+    return `<tr>
+      <td style="color:var(--accent);font-weight:700">${k}</td>
+      <td class="${bp >= 0 ? 'sig-yes' : 'sig-no'}">${bpStr}</td>
+      <td class="${sig ? 'sig-yes' : 'sig-no'}">${tStr}</td>
+      <td>${fmt(p,4)}</td>
+      <td class="${sig ? 'sig-yes' : 'sig-no'}">${sig ? 'SIG' : 'ns'}</td>
+      <td class="${ic != null ? (ic >= 0 ? 'sig-yes' : 'sig-no') : ''}">${icStr}</td>
+      <td>${conStr}</td>
+    </tr>`;
+  });
+  // Alpha row
+  const abp = fm.alpha_bp ?? 0;
+  rows.push(`<tr style="border-top:1px solid var(--border);font-style:italic;color:var(--muted)">
+    <td>Alpha</td>
+    <td class="${abp >= 0 ? 'sig-yes' : 'sig-no'}">${(abp >= 0 ? '+' : '') + abp.toFixed(1)}</td>
+    <td>${(fm.alpha_tstat >= 0 ? '+' : '') + fmt(fm.alpha_tstat,2)}</td>
+    <td>${fmt(fm.alpha_pvalue,4)}</td>
+    <td colspan="3">mean R²=${fmt(fm.mean_r_squared,4)} &nbsp;|&nbsp; ${fm.n_periods} 期截面</td>
+  </tr>`);
+  $('fm-tbody').innerHTML = rows.join('');
+  $('fm-note').textContent =
+    `溢价单位：bp/5日，每1个标准差因子暴露的预测收益。` +
+    `全部 ${names.length} 个因子在 FM 框架下显著（|t|>2）。mean R²=${(fm.mean_r_squared*100).toFixed(1)}%（8因子联合解释横截面收益）。`;
+
+  // ── Other charts ──
+  renderFmR2(d);
+  renderFmIcCompare(d);
+  renderFmBeta('PM-MOM', d);
+  renderFmComposite(d);
+}
+
+function renderFmR2(d) {
+  destroyChart('fmR2');
+  const fm = d.fama_macbeth;
+  if (!fm || !fm.beta_series || !fm.beta_series.length) return;
+
+  const labels = fm.beta_series.map(r => r.date);
+  const r2vals = fm.beta_series.map(r => r._r2 != null ? +(r._r2 * 100).toFixed(2) : null);
+  const nvals  = fm.beta_series.map(r => r._n ?? null);
+  const mean_r2 = (fm.mean_r_squared * 100).toFixed(2);
+
+  charts['fmR2'] = new Chart($('fmR2Chart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'R² (%)',
+          data: r2vals,
+          borderColor: DARK.accent,
+          backgroundColor: 'rgba(88,166,255,0.12)',
+          fill: true,
+          borderWidth: 1.5,
+          pointRadius: 2,
+          tension: 0.3,
+          spanGaps: true,
+          yAxisID: 'y',
+        },
+        {
+          label: `均值 ${mean_r2}%`,
+          data: labels.map(() => +mean_r2),
+          borderColor: DARK.watch,
+          borderDash: [5,3],
+          borderWidth: 1.5,
+          pointRadius: 0,
+          yAxisID: 'y',
+        },
+        {
+          label: '样本量 N',
+          data: nvals,
+          borderColor: DARK.muted + '55',
+          borderDash: [2,4],
+          borderWidth: 1,
+          pointRadius: 0,
+          spanGaps: true,
+          yAxisID: 'y2',
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: DARK.muted, boxWidth: 12 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw, ctx.datasetIndex === 2 ? 0 : 2)}${ctx.datasetIndex < 2 ? '%' : ''}` } },
+      },
+      scales: {
+        x: { grid:{color:'rgba(48,54,61,0.5)'}, ticks:{color:DARK.muted} },
+        y: { position:'left', grid:{color:'rgba(48,54,61,0.5)'}, ticks:{color:DARK.muted, callback:v=>v+'%'},
+             title:{display:true, text:'截面 R²', color:DARK.muted} },
+        y2:{ position:'right', grid:{display:false}, ticks:{color:DARK.muted+'88'},
+             title:{display:true, text:'市场数 N', color:DARK.muted+'88'} },
+      },
+    },
+  });
+  $('fm-r2-note').textContent =
+    `每期截面 OLS R²，均值 ${mean_r2}%（8个因子联合解释截面收益方差）。右轴为每期参与回归的市场数。`;
+}
+
+function renderFmIcCompare(d) {
+  destroyChart('fmIcCompare');
+  const fm = d.fama_macbeth;
+  if (!fm || !fm.factors) return;
+
+  const names = Object.keys(fm.factors);
+  // Normalize both IC and FM premium to [-1,+1] for visual comparison
+  const ics   = names.map(k => fm.factors[k].ic_mean ?? 0);
+  const prems = names.map(k => fm.factors[k].premium_bp ?? 0);
+
+  // Sign-normalized (just sign × min(|val|/max, 1)) so bars show direction
+  const maxIc   = Math.max(...ics.map(Math.abs),  0.001);
+  const maxPrem = Math.max(...prems.map(Math.abs), 0.001);
+  const icNorm   = ics.map(v => +(v / maxIc).toFixed(3));
+  const premNorm = prems.map(v => +(v / maxPrem).toFixed(3));
+
+  const icColors   = icNorm.map(v =>   v < 0 ? DARK.short  + '99' : DARK.long + '99');
+  const premColors = premNorm.map(v => v < 0 ? DARK.short  + 'cc' : DARK.long + 'cc');
+
+  charts['fmIcCompare'] = new Chart($('fmIcCompareChart'), {
+    type: 'bar',
+    data: {
+      labels: names,
+      datasets: [
+        { label: '单变量 IC（归一化）', data: icNorm,   backgroundColor: icColors,
+          borderWidth: 0 },
+        { label: 'FM Beta（归一化）',   data: premNorm, backgroundColor: premColors,
+          borderWidth: 0 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: DARK.muted, boxWidth: 12 } },
+        tooltip: { callbacks: { label: ctx => {
+          const k = names[ctx.dataIndex];
+          if (ctx.datasetIndex === 0) return ` IC = ${fmt(fm.factors[k].ic_mean, 4)}`;
+          return ` FM Beta = ${(fm.factors[k].premium_bp >= 0 ? '+' : '') + fm.factors[k].premium_bp.toFixed(1)}bp`;
+        }}},
+      },
+      scales: {
+        x: { grid:{color:'rgba(48,54,61,0.5)'}, ticks:{color:DARK.muted} },
+        y: { min:-1.1, max:1.1, grid:{color:'rgba(48,54,61,0.5)'}, ticks:{color:DARK.muted},
+             title:{display:true, text:'归一化方向（+正/-负）', color:DARK.muted} },
+      },
+    },
+  });
+}
+
+function renderFmBeta(name, d) {
+  destroyChart('fmBeta');
+  const fm = d.fama_macbeth;
+  if (!fm || !fm.beta_series || !fm.beta_series.length) return;
+
+  const labels  = fm.beta_series.map(r => r.date);
+  const betas   = fm.beta_series.map(r => r[name] != null ? +(r[name] * 10000).toFixed(2) : null);
+  const finfo   = fm.factors?.[name];
+  const meanVal = finfo ? +(finfo.premium_bp).toFixed(1) : 0;
+  const sig     = finfo?.significant;
+  const lineColor = sig ? DARK.green : DARK.muted;
+
+  charts['fmBeta'] = new Chart($('fmBetaChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: `${name} beta/期`,
+          data: betas,
+          borderColor: lineColor + 'cc',
+          backgroundColor: sig ? 'rgba(63,185,80,0.06)' : 'rgba(139,148,158,0.05)',
+          fill: true, borderWidth: 1.5, pointRadius: 2, tension: 0.2, spanGaps: true },
+        { label: `均值 ${meanVal >= 0 ? '+' : ''}${meanVal}bp`,
+          data: labels.map(() => meanVal),
+          borderColor: lineColor, borderDash: [5,3], borderWidth: 1.5, pointRadius: 0 },
+        { label: 'β=0',
+          data: labels.map(() => 0),
+          borderColor: DARK.border, borderDash: [2,4], borderWidth: 1, pointRadius: 0 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: DARK.muted, boxWidth: 12 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw, 1)}bp` } },
+      },
+      scales: commonScales('日期', 'beta (bp/5d per 1σ)'),
+    },
+  });
+}
+
+function renderFmComposite(d) {
+  const fm = d.fama_macbeth;
+  if (!fm) return;
+
+  const renderComp = (id, items) => {
+    const el = $(id);
+    if (!el || !items?.length) return;
+    el.innerHTML = items.map(s =>
+      `<div class="score-row">
+        <span class="score-mkt" title="${escHtml(s.market)}">${escHtml(s.market)}</span>
+        <span class="score-val" style="color:${s.score_bp >= 0 ? 'var(--long)' : 'var(--short)'}">${s.score_bp >= 0 ? '+' : ''}${s.score_bp.toFixed(0)}bp</span>
+      </div>`
+    ).join('');
+  };
+  renderComp('fm-composite-top',    fm.composite_top);
+  renderComp('fm-composite-bottom', fm.composite_bottom);
+}
+
+// ── Utilities ────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Boot ──────────────────────────────────────────────────────────
+loadFactors(false);
+</script>
+<script>
+(async () => {
+  try {
+    const r = await fetch('/api/research-summary');
+    const d = await r.json();
+    const rows = d.expanded_factors || [];
+    const t = document.getElementById('exp-table');
+    if (!rows.length) { t.innerHTML = '<tr><td style="color:#8b949e;padding:8px">暂无扩样研究数据（请先运行 expanded_factor_research.py）</td></tr>'; return; }
+    const th = h => `<th style="text-align:left;color:#8b949e;font-weight:600;padding:6px 8px;border-bottom:1px solid #30363d;white-space:nowrap">${h}</th>`;
+    const td = (v, c) => `<td style="padding:6px 8px;border-bottom:1px solid #1c2128;white-space:nowrap;${c ? 'color:'+c : ''}">${v}</td>`;
+    t.innerHTML = '<tr>' + ['因子','原始IC(样本外)','t','价格中性IC','t','FDR q','判定'].map(th).join('') + '</tr>' +
+      rows.map(x => {
+        const tpn = Math.abs(x.eval_tstat_pn || 0), traw = Math.abs(x.eval_tstat || 0);
+        let verdict, color;
+        if (tpn >= 3)            { verdict = '真实因子';      color = '#3fb950'; }
+        else if (traw >= 2.5)    { verdict = '价格水平为主';  color = '#d29922'; }
+        else                     { verdict = '不显著/假象';   color = '#8b949e'; }
+        return '<tr>' +
+          td('<b>' + x.factor + '</b>') +
+          td((x.eval_ic >= 0 ? '+' : '') + x.eval_ic.toFixed(4)) +
+          td(x.eval_tstat.toFixed(1)) +
+          td((x.eval_ic_pn >= 0 ? '+' : '') + x.eval_ic_pn.toFixed(4)) +
+          td(x.eval_tstat_pn.toFixed(1)) +
+          td(x.fdr_q_pn < 0.001 ? '<0.001' : x.fdr_q_pn.toFixed(3)) +
+          td('<b>' + verdict + '</b>', color) + '</tr>';
+      }).join('');
+  } catch (e) {}
+})();
+</script>
+<script>
+(async () => {
+  try {
+    const r = await fetch('/api/research-summary');
+    const d = await r.json();
+    const lt = d.factor_longterm;
+    if (!lt || !lt.factors) return;
+    const palette = {'PM-MOM':'#f85149','PM-VOL':'#d29922','PM-LIQ':'#3fb950','PM-EXTR':'#58a6ff',
+                     'PM-SPREAD':'#bc8cff','PM-DRIFT':'#8b949e','PM-TTR':'#39c5cf'};
+    const names = Object.keys(lt.factors);
+    const labels = lt.factors[names[0]].dates;
+    document.getElementById('lt-note').textContent =
+      `累计 Δp 多空价差（百分点，稳健口径）。共 ${lt.n_periods} 期，每 ${lt.rebalance_days} 天调仓；${lt.split_date} 之后为样本外段（方向在此前确定）。`;
+    const mk = (id, key, log) => new Chart(document.getElementById(id), {
+      type: 'line',
+      data: { labels,
+        datasets: names.map(f => ({
+          label: f + (lt.factors[f].orient < 0 ? ' (反向)' : ''),
+          data: lt.factors[f].dates.map((dt, i) =>
+            key === 'cum_dp_pp' ? lt.factors[f].cum_dp_pp[i] : 1 + lt.factors[f].cum_net_pct[i] / 100),
+          borderColor: palette[f] || '#8b949e', borderWidth: 1.6,
+          pointRadius: 0, tension: 0.2 })) },
+      options: {
+        responsive: true, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { labels: { color: '#8b949e', boxWidth: 14, font: { size: 10 } } } },
+        scales: {
+          x: { ticks: { color: '#8b949e', maxTicksLimit: 12, font: { size: 10 } }, grid: { color: '#21262d' } },
+          y: { type: log ? 'logarithmic' : 'linear',
+               ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } }
+        }
+      }
+    });
+    mk('ltDpChart', 'cum_dp_pp', false);
+    mk('ltNetChart', 'cum_net', true);
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>

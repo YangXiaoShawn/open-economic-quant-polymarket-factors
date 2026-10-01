@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+cache/
+logs/
+*.pkl
+/*.png
+data/
+.DS_Store

@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polymarket 三因子模型</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #0d1117;
+  --surface:  #161b22;
+  --surface2: #1c2128;
+  --border:   #30363d;
+  --text:     #e6edf3;
+  --muted:    #8b949e;
+  --accent:   #58a6ff;
+  --short:    #f85149;
+  --long:     #3fb950;
+  --watch:    #d29922;
+  --purple:   #bc8cff;
+  --orange:   #f0883e;
+}
+body {
+  font-family: 'SF Mono','Consolas','Menlo',monospace;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+}
+.header-row1 {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 48px; flex-wrap: wrap; padding: 6px 0;
+}
+.logo { font-size: 15px; font-weight: 700; letter-spacing: 1px; color: var(--accent); }
+.logo span { color: var(--muted); font-weight: 400; }
+.header-spacer { flex: 1; }
+.nav-links { display: flex; gap: 4px; }
+.nav-link {
+  padding: 5px 12px; border-radius: 6px; cursor: pointer;
+  text-decoration: none; color: var(--muted); font-size: 12px;
+  border: 1px solid transparent; transition: all 0.2s;
+}
+.nav-link:hover { color: var(--text); border-color: var(--border); }
+.nav-link.active { color: var(--accent); border-color: var(--accent); background: rgba(88,166,255,0.08); }
+.btn {
+  padding: 5px 12px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border); color: var(--text);
+  background: none; font-size: 12px; font-family: inherit;
+  transition: all 0.2s;
+}
+.btn:hover { border-color: var(--accent); background: rgba(88,166,255,0.08); }
+.btn:active { transform: scale(0.97); }
+.header-row2 {
+  display: flex; gap: 20px; height: 36px; align-items: center;
+  border-top: 1px solid var(--border); font-size: 12px; color: var(--muted);
+}
+.stat { display: flex; gap: 5px; }
+.stat b { color: var(--text); }
+
+/* ── Layout ── */
+main { max-width: 1400px; margin: 0 auto; padding: 20px 16px; }
+.section { margin-bottom: 24px; }
+.section-title {
+  font-size: 13px; font-weight: 700; color: var(--muted);
+  letter-spacing: 0.5px; margin-bottom: 12px;
+  padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+}
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+
+/* ── Cards ── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px;
+}
+.metric-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 16px;
+}
+.metric-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.metric-value { font-size: 22px; font-weight: 700; color: var(--text); }
+.metric-value.positive { color: var(--long); }
+.metric-value.negative { color: var(--short); }
+.metric-value.neutral  { color: var(--watch); }
+.metric-sub  { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* ── Hero factor cards ── */
+.factor-hero {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 18px 20px;
+  position: relative; overflow: hidden;
+}
+.factor-hero::before {
+  content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+}
+.factor-hero.extr::before  { background: var(--long); }
+.factor-hero.vol::before   { background: var(--orange); }
+.factor-hero.spread::before{ background: var(--short); }
+.factor-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.factor-name.extr   { color: var(--long); }
+.factor-name.vol    { color: var(--orange); }
+.factor-name.spread { color: var(--short); }
+.factor-cn { font-size: 11px; color: var(--muted); margin-bottom: 12px; }
+.factor-stats { display: flex; gap: 16px; }
+.fstat { }
+.fstat-label { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+.fstat-value { font-size: 18px; font-weight: 700; }
+
+/* ── FM regression table ── */
+.fm-table {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+}
+.fm-table th {
+  text-align: left; padding: 8px 12px; color: var(--muted);
+  border-bottom: 1px solid var(--border); font-weight: 600;
+  font-size: 11px; text-transform: uppercase;
+}
+.fm-table td {
+  padding: 8px 12px; border-bottom: 1px solid rgba(48,54,61,0.5);
+}
+.fm-table tr:last-child td { border-bottom: none; }
+.fm-table tr.sig-row { background: rgba(63,185,80,0.04); }
+.sig-yes { color: var(--long); font-weight: 700; }
+.sig-no  { color: var(--muted); }
+
+/* ── Chart containers ── */
+.chart-wrap { position: relative; height: 280px; }
+.chart-wrap.tall { height: 340px; }
+.chart-wrap.med  { height: 200px; }
+
+/* ── Signal rankings ── */
+.rank-list { display: flex; flex-direction: column; gap: 4px; }
+.rank-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 10px; border-radius: 6px;
+  border: 1px solid rgba(48,54,61,0.5);
+  background: var(--surface2);
+}
+.rank-n { font-size: 10px; color: var(--muted); width: 18px; flex-shrink: 0; text-align: right; }
+.rank-mkt { font-size: 11px; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-score { font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.rank-score.long  { color: var(--long); }
+.rank-score.short { color: var(--short); }
+.rank-bar {
+  height: 3px; border-radius: 2px; flex-shrink: 0;
+  min-width: 4px;
+}
+.rank-bar.long  { background: var(--long); }
+.rank-bar.short { background: var(--short); }
+
+/* ── Diagnostics grid ── */
+.diag-grid {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 12px;
+}
+
+/* ── Spinner ── */
+#spinner {
+  display: none; position: fixed; inset: 0; z-index: 999;
+  background: rgba(13,17,23,0.85);
+  align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+}
+#spinner.active { display: flex; }
+.spin-ring {
+  width: 48px; height: 48px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#spin-msg { color: var(--muted); font-size: 13px; }
+
+/* ── Error banner ── */
+#error-banner {
+  display: none; background: rgba(248,81,73,0.1);
+  border: 1px solid rgba(248,81,73,0.3); border-radius: 8px;
+  padding: 16px; margin-bottom: 20px; color: var(--short);
+}
+#error-banner.active { display: block; }
+
+/* ── Model note ── */
+.model-note {
+  font-size: 11px; color: var(--muted);
+  padding: 10px 14px; border-left: 2px solid var(--border);
+  background: var(--surface2); border-radius: 0 4px 4px 0;
+}
+
+@media (max-width: 900px) {
+  .grid-3 { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
+  .diag-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Spinner ── -->
+<div id="spinner">
+  <div class="spin-ring"></div>
+  <span id="spin-msg">加载因子数据…</span>
+</div>
+
+<!-- ── Header ── -->
+<header>
+  <div class="header-row1">
+    <div class="logo">POLYMARKET <span>ARB</span></div>
+    <div class="nav-links">
+      <a href="/" class="nav-link">实时扫描</a>
+      <a href="/backtest" class="nav-link">回测报告</a>
+      <a href="/factors" class="nav-link">因子研究</a>
+      <a href="/threefactor" class="nav-link active">三因子模型</a>
+      <a href="/shortwinners" class="nav-link">做空赢家</a>
+    </div>
+    <div class="header-spacer"></div>
+    <button class="btn" onclick="loadData(true)">↺ 重新计算</button>
+  </div>
+  <div class="header-row2">
+    <div class="stat">回归周期 <b id="hdr-periods">—</b></div>
+    <div class="stat">平均 R² <b id="hdr-r2">—</b></div>
+    <div class="stat">α <b id="hdr-alpha">—</b> bp</div>
+    <div class="stat">生成于 <b id="hdr-gen">—</b></div>
+  </div>
+</header>
+
+<!-- ── Main ── -->
+<main>
+  <div id="error-banner"></div>
+
+  <!-- ── 扩样复制检验警告（2026-06-11）── -->
+  <div class="section">
+    <div class="card" style="border-color:rgba(248,81,73,0.5);background:rgba(248,81,73,0.06)">
+      <div style="color:#f85149;font-weight:700;margin-bottom:6px">⚠ 复制检验未通过 — 本页结论已被扩样研究推翻</div>
+      <div style="color:var(--muted);font-size:12px;line-height:1.8">
+        三因子组合 EXTR+DRIFT+SPREAD 在 4000 市场 × 574 天本地全量样本（样本外后半段）上：
+        <b id="combo-warn-num" style="color:#f85149">价格中性 IC ≈ 0.006（t=0.82，不显著）</b>
+        —— 其表观预测力来自价格水平结构，而非增量 alpha。本页基于 ~125 个活跃市场的 API 小样本，仅作方法演示保留。
+        可交易结论见 <a href="/factors" style="color:var(--accent)">因子研究</a> 顶部扩样结论表与
+        <a href="/shortwinners" style="color:var(--accent)">做空赢家</a> 策略页。
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 扩样最优三因子结构 ── -->
+  <div class="section">
+    <div class="section-title">扩样样本最优三因子结构 — 35 组合全搜索（方向与构建用前半段，全部指标样本外）</div>
+    <div class="card" style="border-color:rgba(63,185,80,0.45);background:rgba(63,185,80,0.05)">
+      <div id="tfs-best" style="font-size:12px;line-height:1.9;color:var(--muted)">加载中…</div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div style="overflow-x:auto"><table id="tfs-table" style="width:100%;border-collapse:collapse;font-size:12px"></table></div>
+      <div style="color:var(--muted);font-size:11px;margin-top:8px">
+        score = 价格中性 IC t-stat + 净收益 t-stat。net%/期为 token 杠杆口径（真实成交点差成本），受边界价名字放大 — 稳健解读以 Δp 价差与价格中性 IC 为准。
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 三个显著因子卡片 ── -->
+  <div class="section">
+    <div class="section-title">显著因子（Fama-MacBeth Newey-West t 检验）</div>
+    <div class="grid-3">
+      <div class="factor-hero extr">
+        <div class="factor-name extr">PM-EXTR</div>
+        <div class="factor-cn">价格极端性反转因子</div>
+        <div class="factor-stats">
+          <div class="fstat">
+            <div class="fstat-label">风险溢价</div>
+            <div class="fstat-value positive" id="h-extr-prem">—</div>
+          </div>
+          <div class="fstat">
+            <div class="fstat-label">t 统计量</div>
+            <div class="fstat-value" id="h-extr-t">—</div>
+          </div>
+          <div class="fstat">
+            <div class="fstat-label">均值 IC</div>
+            <div class="fstat-value" id="h-extr-ic">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="factor-hero spread">
+        <div class="factor-name spread">PM-SPREAD</div>
+        <div class="factor-cn">买卖价差流动性因子</div>
+        <div class="factor-stats">
+          <div class="fstat">
+            <div class="fstat-label">风险溢价</div>
+            <div class="fstat-value negative" id="h-spread-prem">—</div>
+          </div>
+          <div class="fstat">
+            <div class="fstat-label">t 统计量</div>
+            <div class="fstat-value" id="h-spread-t">—</div>
+          </div>
+          <div class="fstat">
+            <div class="fstat-label">均值 IC</div>
+            <div class="fstat-value" id="h-spread-ic">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="factor-hero vol">
+        <div class="factor-name vol">PM-VOL</div>
+        <div class="factor-cn">已实现波动率因子</div>
+        <div class="factor-stats">
+          <div class="fstat">
+            <div class="fstat-label">风险溢价</div>
+            <div class="fstat-value positive" id="h-vol-prem">—</div>
+          </div>
+          <div class="fstat">
+            <div class="fstat-label">t 统计量</div>
+            <div class="fstat-value" id="h-vol-t">—</div>
+          </div>
+          <div class="fstat">
+            <div class="fstat-label">均值 IC</div>
+            <div class="fstat-value" id="h-vol-ic">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Fama-MacBeth 完整回归结果 ── -->
+  <div class="section">
+    <div class="section-title">Fama-MacBeth 回归完整结果（全部七因子）</div>
+    <div class="card">
+      <table class="fm-table">
+        <thead>
+          <tr>
+            <th>因子</th>
+            <th>描述</th>
+            <th style="text-align:right">风险溢价 (bp)</th>
+            <th style="text-align:right">t 统计量</th>
+            <th style="text-align:right">p 值</th>
+            <th style="text-align:right">均值 IC</th>
+            <th>显著性</th>
+          </tr>
+        </thead>
+        <tbody id="fm-tbody"></tbody>
+      </table>
+      <div class="model-note" style="margin-top:12px">
+        风险溢价 = Fama-MacBeth 两步法：截面 OLS 估计 beta，时序均值为溢价；t 统计量采用 Newey-West 异方差/自相关稳健标准误修正。显著性阈值：|t| > 1.96（p &lt; 0.05）。
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Beta 时间序列演化 ── -->
+  <div class="section">
+    <div class="section-title">因子 Beta 时间演化（155 个截面周期）</div>
+    <div class="card">
+      <div class="chart-wrap tall">
+        <canvas id="beta-chart"></canvas>
+      </div>
+      <div class="model-note" style="margin-top:12px">
+        每个数据点为该截面期的 OLS 估计 beta。滚动观察 beta 稳定性：斜率持续为正/负且无结构性断裂的因子为有效定价因子。
+      </div>
+    </div>
+  </div>
+
+  <!-- ── IC 序列图 ── -->
+  <div class="section">
+    <div class="section-title">因子 IC 序列（30 日滚动 Spearman 相关）</div>
+    <div class="grid-3">
+      <div class="card">
+        <div style="font-size:12px;font-weight:700;color:var(--long);margin-bottom:8px">PM-EXTR IC 序列</div>
+        <div class="chart-wrap med"><canvas id="ic-extr-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div style="font-size:12px;font-weight:700;color:var(--short);margin-bottom:8px">PM-SPREAD IC 序列</div>
+        <div class="chart-wrap med"><canvas id="ic-spread-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:8px">PM-VOL IC 序列</div>
+        <div class="chart-wrap med"><canvas id="ic-vol-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 十分位组合收益 ── -->
+  <div class="section">
+    <div class="section-title">十分位组合超额收益（按因子分组多空组合）</div>
+    <div class="grid-3">
+      <div class="card">
+        <div style="font-size:12px;font-weight:700;color:var(--long);margin-bottom:8px">PM-EXTR 十分位收益</div>
+        <div class="chart-wrap med"><canvas id="dec-extr-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div style="font-size:12px;font-weight:700;color:var(--short);margin-bottom:8px">PM-SPREAD 十分位收益</div>
+        <div class="chart-wrap med"><canvas id="dec-spread-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:8px">PM-VOL 十分位收益</div>
+        <div class="chart-wrap med"><canvas id="dec-vol-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 组合信号排名 ── -->
+  <div class="section">
+    <div class="section-title">复合因子信号排名（三因子加权组合得分）</div>
+    <div class="grid-2">
+      <div class="card">
+        <div style="font-size:12px;font-weight:700;color:var(--long);margin-bottom:12px">▲ 做多信号 TOP 10（得分最高）</div>
+        <div class="rank-list" id="rank-long"></div>
+      </div>
+      <div class="card">
+        <div style="font-size:12px;font-weight:700;color:var(--short);margin-bottom:12px">▼ 做空信号 TOP 10（得分最低）</div>
+        <div class="rank-list" id="rank-short"></div>
+      </div>
+    </div>
+    <div class="model-note" style="margin-top:12px">
+      复合得分 = Σ (因子 beta × 因子暴露 × t统计量权重)，以基点（bp）表示期望超额收益。仅供研究参考，不构成交易建议。
+    </div>
+  </div>
+
+  <!-- ── 模型诊断 ── -->
+  <div class="section">
+    <div class="section-title">模型诊断</div>
+    <div class="diag-grid">
+      <div class="metric-card">
+        <div class="metric-label">截面回归周期数</div>
+        <div class="metric-value" id="diag-periods">—</div>
+        <div class="metric-sub">Fama-MacBeth 时间序列观测</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">平均截面 R²</div>
+        <div class="metric-value positive" id="diag-r2">—</div>
+        <div class="metric-sub">截面 OLS 拟合优度</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">模型 α（截距）</div>
+        <div class="metric-value" id="diag-alpha">—</div>
+        <div class="metric-sub">t 统计量 <span id="diag-alpha-t" style="color:var(--muted)">—</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">显著因子数 / 总因子数</div>
+        <div class="metric-value" id="diag-sig-ratio">—</div>
+        <div class="metric-sub">|t| &gt; 1.96 通过率</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const FACTOR_META = {
+  'PM-DRIFT':  { cn: '方向漂移',   color: '#8b949e' },
+  'PM-EXTR':   { cn: '价格极端性', color: '#3fb950' },
+  'PM-LIQ':    { cn: '流动性',     color: '#58a6ff' },
+  'PM-MOM':    { cn: '概率动量',   color: '#bc8cff' },
+  'PM-SPREAD': { cn: '买卖价差',   color: '#f85149' },
+  'PM-TTR':    { cn: '距结算时间', color: '#d29922' },
+  'PM-VOL':    { cn: '已实现波动率', color: '#f0883e' },
+};
+
+const SIG_FACTORS = ['PM-EXTR', 'PM-SPREAD', 'PM-VOL'];
+
+let charts = {};
+
+function showSpinner(msg) {
+  document.getElementById('spin-msg').textContent = msg || '加载中…';
+  document.getElementById('spinner').classList.add('active');
+}
+function hideSpinner() {
+  document.getElementById('spinner').classList.remove('active');
+}
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = msg;
+  el.classList.add('active');
+}
+
+function fmt(v, decimals = 2) {
+  if (v == null || isNaN(v)) return '—';
+  return v.toFixed(decimals);
+}
+
+function fmtBp(v) {
+  if (v == null || isNaN(v)) return '—';
+  return (v >= 0 ? '+' : '') + Math.round(v) + ' bp';
+}
+
+function escHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function makeLineChart(id, labels, datasets, opts = {}) {
+  destroyChart(id);
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 }, boxWidth: 12 } }, tooltip: { mode: 'index', intersect: false } },
+      scales: {
+        x: {
+          ticks: { color: '#8b949e', maxRotation: 0, autoSkip: true, maxTicksLimit: 8, font: { size: 10 } },
+          grid: { color: 'rgba(48,54,61,0.5)' },
+        },
+        y: {
+          ticks: { color: '#8b949e', font: { size: 10 } },
+          grid: { color: 'rgba(48,54,61,0.5)' },
+          ...( opts.yOpts || {} )
+        }
+      },
+      interaction: { intersect: false, mode: 'index' },
+      elements: { point: { radius: 0, hitRadius: 8 }, line: { tension: 0.3 } },
+    }
+  });
+}
+
+function makeBarChart(id, labels, data, colors, opts = {}) {
+  destroyChart(id);
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderRadius: 3,
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: ctx => `${fmt(ctx.parsed.y, 2)}%`
+      }}},
+      scales: {
+        x: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: '#8b949e', font: { size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(48,54,61,0.5)' } }
+      },
+    }
+  });
+}
+
+function renderFMTable(fmData) {
+  const factors = fmData.factors;
+  const names = fmData.factor_names || Object.keys(factors);
+
+  // Sort by |t-stat| descending
+  const sorted = names
+    .map(n => ({ name: n, ...factors[n] }))
+    .sort((a, b) => Math.abs(b.t_statistic) - Math.abs(a.t_statistic));
+
+  const tbody = document.getElementById('fm-tbody');
+  tbody.innerHTML = '';
+  sorted.forEach(f => {
+    const meta = FACTOR_META[f.name] || { cn: f.name, color: '#8b949e' };
+    const sig = f.significant;
+    const premStr = fmtBp(f.premium_bp);
+    const tStr = fmt(f.t_statistic, 3);
+    const pStr = f.p_value < 0.001 ? '<0.001' : fmt(f.p_value, 4);
+    const icStr = fmt(f.ic_mean, 4);
+
+    const row = document.createElement('tr');
+    if (sig) row.classList.add('sig-row');
+    row.innerHTML = `
+      <td style="font-weight:700;color:${meta.color}">${f.name}</td>
+      <td style="color:var(--muted)">${meta.cn}</td>
+      <td style="text-align:right;color:${f.premium_bp >= 0 ? 'var(--long)' : 'var(--short)'};font-weight:${sig?'700':'400'}">${premStr}</td>
+      <td style="text-align:right" class="${sig ? 'sig-yes' : 'sig-no'}">${tStr}</td>
+      <td style="text-align:right;color:var(--muted)">${pStr}</td>
+      <td style="text-align:right;color:var(--muted)">${icStr}</td>
+      <td>${sig ? '<span style="color:var(--long);font-weight:700">★ 显著</span>' : '<span style="color:var(--muted)">—</span>'}</td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+function renderBetaChart(betaSeries) {
+  if (!betaSeries || !betaSeries.length) return;
+
+  const labels = betaSeries.map(b => b.date ? b.date.slice(0, 10) : '');
+
+  const datasets = SIG_FACTORS.map(fn => {
+    const meta = FACTOR_META[fn];
+    return {
+      label: fn,
+      data: betaSeries.map(b => b[fn] != null ? +b[fn].toFixed(4) : null),
+      borderColor: meta.color,
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      spanGaps: true,
+    };
+  });
+
+  // Also add zero reference
+  datasets.push({
+    label: 'Zero',
+    data: betaSeries.map(() => 0),
+    borderColor: 'rgba(139,148,158,0.3)',
+    borderDash: [4, 4],
+    borderWidth: 1,
+    pointRadius: 0,
+    spanGaps: true,
+  });
+
+  makeLineChart('beta-chart', labels, datasets);
+}
+
+function renderICChart(id, icSeries, color) {
+  if (!icSeries || !icSeries.length) return;
+  const labels = icSeries.map(d => d.date ? d.date.slice(0, 10) : '');
+  const values = icSeries.map(d => d.value != null ? +d.value.toFixed(4) : null);
+  const colors = values.map(v => v >= 0 ? 'rgba(63,185,80,0.7)' : 'rgba(248,81,73,0.7)');
+
+  destroyChart(id);
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: ctx => `IC: ${fmt(ctx.parsed.y, 4)}`
+      }}},
+      scales: {
+        x: { ticks: { color: '#8b949e', font: { size: 9 }, maxTicksLimit: 6, maxRotation: 0, autoSkip: true }, grid: { display: false } },
+        y: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: 'rgba(48,54,61,0.5)' } }
+      },
+    }
+  });
+}
+
+function renderDecileChart(id, decileReturns, color) {
+  if (!decileReturns || !decileReturns.length) return;
+  const sorted = [...decileReturns].sort((a, b) => a.decile - b.decile);
+  const labels = sorted.map(d => `D${d.decile}`);
+  const values = sorted.map(d => +d.return_pct.toFixed(3));
+  const colors = values.map(v => v >= 0 ? 'rgba(63,185,80,0.75)' : 'rgba(248,81,73,0.75)');
+  makeBarChart(id, labels, values, colors);
+}
+
+function renderRankings(topList, bottomList) {
+  const maxScore = Math.max(
+    ...topList.map(m => Math.abs(m.score_bp)),
+    ...bottomList.map(m => Math.abs(m.score_bp)),
+    1
+  );
+
+  function renderList(containerId, items, isLong) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = '';
+    items.forEach((item, i) => {
+      const pct = Math.round(Math.abs(item.score_bp) / maxScore * 120);
+      const scoreStr = (item.score_bp >= 0 ? '+' : '') + Math.round(item.score_bp) + ' bp';
+      const row = document.createElement('div');
+      row.className = 'rank-row';
+      row.innerHTML = `
+        <span class="rank-n">${i + 1}</span>
+        <span class="rank-mkt" title="${escHtml(item.market)}">${escHtml(item.market)}</span>
+        <div class="rank-bar ${isLong ? 'long' : 'short'}" style="width:${Math.max(pct,4)}px"></div>
+        <span class="rank-score ${isLong ? 'long' : 'short'}">${escHtml(scoreStr)}</span>
+      `;
+      el.appendChild(row);
+    });
+  }
+
+  renderList('rank-long', topList.slice(0, 10), true);
+  renderList('rank-short', bottomList.slice(0, 10), false);
+}
+
+function renderHeroCards(fmFactors) {
+  const pairs = [
+    { key: 'PM-EXTR',   premId: 'h-extr-prem',   tId: 'h-extr-t',   icId: 'h-extr-ic' },
+    { key: 'PM-SPREAD', premId: 'h-spread-prem', tId: 'h-spread-t', icId: 'h-spread-ic' },
+    { key: 'PM-VOL',    premId: 'h-vol-prem',    tId: 'h-vol-t',    icId: 'h-vol-ic' },
+  ];
+  pairs.forEach(({ key, premId, tId, icId }) => {
+    const f = fmFactors[key];
+    if (!f) return;
+    const premEl = document.getElementById(premId);
+    premEl.textContent = fmtBp(f.premium_bp);
+    document.getElementById(tId).textContent = fmt(f.t_statistic, 3);
+    const icEl = document.getElementById(icId);
+    icEl.textContent = fmt(f.ic_mean, 4);
+    icEl.style.color = f.ic_mean >= 0 ? 'var(--long)' : 'var(--short)';
+  });
+}
+
+async function loadData(force = false) {
+  showSpinner(force ? '重新计算中（60-120 秒）…' : '加载因子数据…');
+  try {
+    const url = force ? '/api/factors?force=true' : '/api/factors';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
+
+    const fm = d.fama_macbeth;
+    const factors = d.factors;
+
+    // Header stats
+    document.getElementById('hdr-periods').textContent = fm.n_periods;
+    document.getElementById('hdr-r2').textContent = (fm.mean_r_squared * 100).toFixed(1) + '%';
+    document.getElementById('hdr-alpha').textContent = Math.round(fm.alpha_bp);
+    document.getElementById('hdr-gen').textContent = d.generated_at ? d.generated_at.slice(0, 16) : '—';
+
+    // Hero cards
+    renderHeroCards(fm.factors);
+
+    // Full FM table
+    renderFMTable(fm);
+
+    // Beta time series
+    renderBetaChart(fm.beta_series);
+
+    // IC series charts
+    if (factors['PM-EXTR'])   renderICChart('ic-extr-chart',   factors['PM-EXTR'].ic_series,   '#3fb950');
+    if (factors['PM-SPREAD']) renderICChart('ic-spread-chart', factors['PM-SPREAD'].ic_series, '#f85149');
+    if (factors['PM-VOL'])    renderICChart('ic-vol-chart',    factors['PM-VOL'].ic_series,    '#f0883e');
+
+    // Decile return charts
+    if (factors['PM-EXTR'])   renderDecileChart('dec-extr-chart',   factors['PM-EXTR'].decile_returns,   '#3fb950');
+    if (factors['PM-SPREAD']) renderDecileChart('dec-spread-chart', factors['PM-SPREAD'].decile_returns, '#f85149');
+    if (factors['PM-VOL'])    renderDecileChart('dec-vol-chart',    factors['PM-VOL'].decile_returns,    '#f0883e');
+
+    // Rankings
+    renderRankings(fm.composite_top || [], fm.composite_bottom || []);
+
+    // Diagnostics
+    document.getElementById('diag-periods').textContent = fm.n_periods;
+    document.getElementById('diag-r2').textContent = (fm.mean_r_squared * 100).toFixed(2) + '%';
+    const alphaEl = document.getElementById('diag-alpha');
+    alphaEl.textContent = Math.round(fm.alpha_bp) + ' bp';
+    alphaEl.className = 'metric-value ' + (fm.alpha_bp >= 0 ? 'positive' : 'negative');
+    document.getElementById('diag-alpha-t').textContent = '(t=' + fmt(fm.alpha_tstat, 2) + ')';
+
+    const allFactors = Object.values(fm.factors);
+    const nSig = allFactors.filter(f => f.significant).length;
+    document.getElementById('diag-sig-ratio').textContent = nSig + ' / ' + allFactors.length;
+
+    document.getElementById('error-banner').classList.remove('active');
+  } catch (err) {
+    showError('数据加载失败：' + err.message);
+  } finally {
+    hideSpinner();
+  }
+}
+
+loadData();
+</script>
+<script>
+fetch('/api/research-summary').then(r => r.json()).then(d => {
+  if (d.combo && d.combo.eval_ic_pn !== undefined) {
+    document.getElementById('combo-warn-num').textContent =
+      `价格中性 IC = ${d.combo.eval_ic_pn.toFixed(4)}（t=${d.combo.eval_tstat_pn.toFixed(2)}, p=${d.combo.eval_pvalue_pn.toFixed(3)}, n=${d.combo.n_eval}，不显著）`;
+  }
+}).catch(() => {});
+</script>
+<script>
+(async () => {
+  try {
+    const r = await fetch('/api/research-summary');
+    const d = await r.json();
+    const rows = d.threefactor_search || [];
+    const best = d.best_threefactor;
+    if (best) {
+      const o = best.orientation || {};
+      const dir = Object.keys(o).map(k => `${k}${o[k] > 0 ? '↑' : '↓'}`).join(' + ');
+      document.getElementById('tfs-best').innerHTML =
+        `<span style="color:#3fb950;font-weight:700;font-size:13px">★ 最优结构：${best.factors}</span><br>` +
+        `方向：${dir}（↓=反向使用）｜ 样本外价格中性 IC = <b style="color:#3fb950">${best.stats.eval_ic_pn}</b>（t=${best.stats.eval_tstat_pn}）｜ ` +
+        `Δp 多空价差 <b>${best.stats.dp_spread_pp}pp/5天</b>（t=${best.stats.dp_tstat}）｜ ` +
+        `净收益 ${best.stats.net_per_period_pct}%/期（t=${best.stats.net_tstat}，年化 Sharpe ${best.stats.net_sharpe_ann}）｜ n=${best.stats.n_eval}` +
+        `<br><span style="color:#8b949e">对比：本页旧组合 EXTR+DRIFT+SPREAD 价格中性 IC≈0.006（不显著），未进入前十。</span>`;
+    }
+    if (rows.length) {
+      const th = h => `<th style="text-align:left;color:#8b949e;font-weight:600;padding:6px 8px;border-bottom:1px solid #30363d;white-space:nowrap">${h}</th>`;
+      const td = (v, c) => `<td style="padding:6px 8px;border-bottom:1px solid #1c2128;white-space:nowrap;${c ? 'color:'+c : ''}">${v}</td>`;
+      document.getElementById('tfs-table').innerHTML =
+        '<tr>' + ['#','组合','pn IC','t','Δp价差(pp)','t','净%/期','t','Sharpe','score'].map(th).join('') + '</tr>' +
+        rows.slice(0, 10).map((x, i) => '<tr>' +
+          td(i + 1, '#8b949e') +
+          td('<b>' + x.factors + '</b>', i === 0 ? '#3fb950' : null) +
+          td(x.eval_ic_pn.toFixed(4)) + td(x.eval_tstat_pn.toFixed(1)) +
+          td('+' + x.dp_spread_pp.toFixed(2)) + td(x.dp_tstat.toFixed(1)) +
+          td(x.net_per_period_pct.toFixed(1)) + td(x.net_tstat.toFixed(1)) +
+          td(x.net_sharpe_ann.toFixed(1)) +
+          td('<b>' + x.score.toFixed(1) + '</b>', i === 0 ? '#3fb950' : null) +
+        '</tr>').join('');
+    }
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>

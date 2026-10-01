@@ -1,0 +1,20 @@
+title: "Prediction-Market Factor Research: Polymarket"
+slug: polymarket-factors
+summary: Cross-sectional factor research on 4,000 Polymarket markets over 574 days, built around removing the mechanical artifacts that dominate prediction-market backtests.
+research_question: Do behavioral biases leave predictable cross-sectional structure in prediction-market prices once clipping, return-base, stale-quote and survival artifacts are removed?
+research_fields:
+  - Asset pricing
+  - Market microstructure
+project_type: empirical-research
+status: public-research-snapshot
+authors:
+  - Repository owner and maintainer
+sample_period: 2024-09-01 through 2026-03-28, including resolved markets; out-of-sample half 2025-06-28 through 2026-03-20.
+data_sources:
+  - Polymarket Gamma and CLOB public APIs
+data_license: Market data are not redistributed; scripts fetch them from Polymarket's public APIs, subject to Polymarket's terms.
+code_license: No repository license declared; copyright remains with the repository owner.
+evidence_grade: backtest (association)
+github_url: https://github.com/YangXiaoShawn/open-economic-quant-polymarket-factors
+last_updated: 2026-09-30
+limitations: Capacity about $100-200 per position; daily-close fills; the combined-portfolio weighting was chosen in sample and is not validated out of sample.

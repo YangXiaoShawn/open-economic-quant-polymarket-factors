@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polymarket 回测报告</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0d1117;
+  --surface:  #161b22;
+  --surface2: #1c2128;
+  --border:   #30363d;
+  --text:     #e6edf3;
+  --muted:    #8b949e;
+  --accent:   #58a6ff;
+  --green:    #3fb950;
+  --red:      #f85149;
+  --yellow:   #d29922;
+  --purple:   #bc8cff;
+}
+
+body {
+  font-family: 'SF Mono', Consolas, Menlo, monospace;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  min-height: 100vh;
+}
+
+/* ── Nav ─────────────────────────────────────────────────────────── */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 48px;
+}
+.nav-logo {
+  font-size: 14px; font-weight: 700; letter-spacing: 1px;
+  color: var(--accent); margin-right: 28px;
+}
+.nav-logo span { color: var(--muted); font-weight: 400; }
+.nav-link {
+  color: var(--muted); text-decoration: none;
+  padding: 0 16px; height: 100%;
+  display: flex; align-items: center;
+  border-bottom: 2px solid transparent;
+  font-size: 12px;
+  transition: color .15s;
+}
+.nav-link:hover { color: var(--text); }
+.nav-link.active { color: var(--text); border-color: var(--accent); }
+.nav-spacer { flex: 1; }
+.btn-run {
+  background: rgba(63,185,80,.12);
+  border: 1px solid rgba(63,185,80,.35);
+  color: var(--green); padding: 5px 14px;
+  border-radius: 6px; cursor: pointer;
+  font-size: 12px; font-family: inherit; font-weight: 600;
+  transition: background .2s;
+}
+.btn-run:hover { background: rgba(63,185,80,.22); }
+.btn-run:disabled { opacity: .4; cursor: not-allowed; }
+.nav-meta { font-size: 11px; color: var(--muted); margin-right: 12px; }
+
+/* ── Main layout ─────────────────────────────────────────────────── */
+main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+/* ── Loading ─────────────────────────────────────────────────────── */
+#loading {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 80px 0; gap: 16px; color: var(--muted);
+}
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Error ───────────────────────────────────────────────────────── */
+#error-box {
+  display: none;
+  background: rgba(248,81,73,.1);
+  border: 1px solid rgba(248,81,73,.3);
+  border-radius: 8px;
+  padding: 20px 24px;
+  color: var(--red);
+  margin-bottom: 24px;
+}
+
+/* ── Section title ───────────────────────────────────────────────── */
+.section-title {
+  font-size: 11px; font-weight: 600;
+  color: var(--muted); letter-spacing: .8px;
+  text-transform: uppercase;
+  margin-bottom: 12px; margin-top: 28px;
+}
+
+/* ── Metric cards ────────────────────────────────────────────────── */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+}
+.card .label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+.card .value { font-size: 22px; font-weight: 700; color: var(--text); }
+.card .sub   { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.card.pos .value { color: var(--green); }
+.card.neg .value { color: var(--red); }
+.card.neu .value { color: var(--accent); }
+
+/* ── Chart panel ─────────────────────────────────────────────────── */
+.chart-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.chart-panel h3 {
+  font-size: 12px; color: var(--muted);
+  font-weight: 600; letter-spacing: .5px;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+}
+.chart-wrap { position: relative; height: 260px; }
+.eod-note { margin-top:6px; font-size:11px; color:rgba(248,81,73,0.75); padding:4px 6px; border-left:2px solid rgba(248,81,73,0.4); background:rgba(248,81,73,0.05); border-radius:0 3px 3px 0; }
+
+/* ── Strategy comparison table ───────────────────────────────────── */
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.compare-table th {
+  background: var(--surface2);
+  color: var(--muted);
+  font-weight: 600;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.compare-table th:not(:first-child) { text-align: right; }
+.compare-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid rgba(48,54,61,.5);
+  color: var(--text);
+}
+.compare-table td:not(:first-child) { text-align: right; }
+.compare-table tr:hover td { background: rgba(255,255,255,.02); }
+.compare-table .row-label { color: var(--muted); font-size: 11px; }
+td.pos { color: var(--green); }
+td.neg { color: var(--red); }
+
+/* ── Two-col layout ─────────────────────────────────────────────── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ── Trades table ────────────────────────────────────────────────── */
+.tab-bar {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+}
+.tab-btn {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--muted); padding: 8px 16px;
+  cursor: pointer; font-size: 12px; font-family: inherit;
+  transition: color .15s;
+}
+.tab-btn.active { color: var(--text); border-color: var(--accent); }
+.tab-btn:hover { color: var(--text); }
+
+.trades-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.trades-scroll { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+.trades-table {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+}
+.trades-table th {
+  background: var(--surface2); color: var(--muted); font-weight: 600;
+  padding: 8px 12px; text-align: left;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 1;
+}
+.trades-table td {
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(48,54,61,.4);
+}
+.trades-table tr:hover td { background: rgba(255,255,255,.02); }
+.badge {
+  display: inline-block; padding: 1px 6px; border-radius: 3px;
+  font-size: 10px; font-weight: 600;
+}
+.badge-pair { background: rgba(88,166,255,.15); color: var(--accent); }
+.badge-port { background: rgba(188,140,255,.15); color: var(--purple); }
+.badge-long { background: rgba(63,185,80,.15); color: var(--green); }
+.badge-short { background: rgba(248,81,73,.15); color: var(--red); }
+.pnl-pos { color: var(--green); font-weight: 600; }
+.pnl-neg { color: var(--red); font-weight: 600; }
+.pnl-zero { color: var(--muted); }
+
+.meta-bar {
+  padding: 10px 16px;
+  font-size: 11px; color: var(--muted);
+  border-top: 1px solid var(--border);
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-logo">POLYMARKET <span>ARB</span></div>
+  <a href="/"            class="nav-link">实时扫描</a>
+  <a href="/backtest"    class="nav-link active">回测报告</a>
+  <a href="/factors"     class="nav-link">因子研究</a>
+  <a href="/threefactor" class="nav-link">三因子模型</a>
+  <a href="/shortwinners" class="nav-link">做空赢家</a>
+  <div class="nav-spacer"></div>
+  <span class="nav-meta" id="nav-meta">—</span>
+  <button class="btn-run" id="btn-run" onclick="runBacktest(true)">↺ 重新回测</button>
+</nav>
+
+<main>
+  <!-- ── 方法论与研究状态（2026-06-11）── -->
+  <div class="card" style="margin-bottom:16px">
+    <div style="color:#d29922;font-weight:700;margin-bottom:6px">方法论与研究状态（2026-06-11 更新）</div>
+    <div style="color:var(--muted);font-size:12px;line-height:1.8">
+      ① 数据源已切换为<b style="color:#3fb950">本地存量数据</b>：4000 市场全量面板按总成交额取前 400（2024-09 → 2026-03，574 天，含已结算市场 — 无幸存者偏差），边界价（&lt;0.03 / &gt;0.97 结算收敛区）已剔除；
+      ② 组合套利 SHORT 腿盈亏为 NO 代币口径（做空 = 买 NO，成本 1−p，旧公式对低价市场虚高至 19 倍）；
+      ③ 交易成本为单边 1.5%（开仓+平仓 = 往返 3%/腿）；
+      ④ 资本配置已调整为<b style="color:#3fb950">组合套利 50% + 做空赢家 50%</b>（配对交易因扩样研究证明净收益为负且本地面板无协整配对，已移除）；
+      当前最优可交易策略为 <a href="/shortwinners" style="color:var(--accent)">做空赢家</a>（30 日动量反转空头腿，净 +20.6%/5天，t=9.1）。
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <div id="loading-msg">正在加载回测数据…</div>
+  </div>
+
+  <!-- Error -->
+  <div id="error-box"></div>
+
+  <!-- Content (hidden until data loaded) -->
+  <div id="content" style="display:none">
+
+    <!-- Combined metrics -->
+    <div class="section-title">组合策略总体表现</div>
+    <div class="cards" id="combined-cards"></div>
+
+    <!-- Equity curve chart -->
+    <div class="section-title" style="margin-top:24px">净值曲线</div>
+    <div class="chart-panel">
+      <h3>资产净值 (USD) — 组合 / 做空赢家 / 组合套利</h3>
+      <div class="chart-wrap"><canvas id="equity-chart"></canvas></div>
+      <div id="eod-note" class="eod-note" style="display:none"></div>
+    </div>
+
+    <!-- Drawdown chart -->
+    <div class="two-col" style="margin-bottom:4px">
+      <div class="chart-panel" style="margin-bottom:0">
+        <h3>回撤 (%)</h3>
+        <div class="chart-wrap" style="height:180px"><canvas id="dd-chart"></canvas></div>
+      </div>
+      <div class="chart-panel" style="margin-bottom:0">
+        <h3>每日盈亏分布</h3>
+        <div class="chart-wrap" style="height:180px"><canvas id="pnl-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Strategy comparison -->
+    <div class="section-title">策略指标对比</div>
+    <div class="chart-panel" style="padding:0;overflow:hidden">
+      <table class="compare-table" id="compare-table"></table>
+    </div>
+
+    <!-- Trades -->
+    <div class="section-title">交易记录</div>
+    <div class="trades-panel">
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('all')">全部</button>
+        <button class="tab-btn" onclick="switchTab('pair')">做空赢家</button>
+        <button class="tab-btn" onclick="switchTab('port')">组合套利</button>
+      </div>
+      <div class="trades-scroll">
+        <table class="trades-table">
+          <thead>
+            <tr>
+              <th>策略</th>
+              <th>市场</th>
+              <th>方向</th>
+              <th>开仓日期</th>
+              <th>平仓日期</th>
+              <th>持仓天数</th>
+              <th style="text-align:right">盈亏 (USD)</th>
+              <th>平仓原因</th>
+            </tr>
+          </thead>
+          <tbody id="trades-body"></tbody>
+        </table>
+      </div>
+      <div class="meta-bar" id="trades-meta"></div>
+    </div>
+
+  </div><!-- /content -->
+</main>
+
+<script>
+// ─── Vertical-line annotation plugin ────────────────────────────────
+const _vertLinePlugin = {
+  id: 'vertLine',
+  afterDraw(chart) {
+    const vl = chart.config.options?.plugins?.vertLine;
+    if (!vl?.xLabel) return;
+    const idx = chart.data.labels.indexOf(vl.xLabel);
+    if (idx < 0) return;
+    const { ctx, chartArea, scales } = chart;
+    const x = scales.x.getPixelForValue(idx);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(248,81,73,0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x, chartArea.top);
+    ctx.lineTo(x, chartArea.bottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(248,81,73,0.75)';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(vl.label || '数据截止', x - 4, chartArea.top + 13);
+    ctx.restore();
+  }
+};
+Chart.register(_vertLinePlugin);
+
+// ─── State ──────────────────────────────────────────────────────────
+let _data = null;
+let _currentTab = 'all';
+let _equityChart = null;
+let _ddChart     = null;
+let _pnlChart    = null;
+
+// ─── Boot ────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => { loadBacktest(false); });
+
+// ─── Load / run backtest ─────────────────────────────────────────────
+async function loadBacktest(force) {
+  showLoading('正在加载回测数据…');
+  document.getElementById('error-box').style.display = 'none';
+  document.getElementById('content').style.display = 'none';
+  document.getElementById('btn-run').disabled = true;
+
+  try {
+    const url = '/api/backtest' + (force ? '?force=true' : '');
+    showLoading(force ? '正在运行回测，请稍候（约 30-60 秒）…' : '正在加载数据…');
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (!resp.ok || data.error) {
+      showError(data.error || '加载失败');
+      return;
+    }
+    _data = data;
+    render(data);
+  } catch (e) {
+    showError('网络错误: ' + e.message);
+  } finally {
+    document.getElementById('btn-run').disabled = false;
+  }
+}
+
+function runBacktest(force) { loadBacktest(force); }
+
+// ─── Render ──────────────────────────────────────────────────────────
+function render(d) {
+  hideLoading();
+
+  // Nav meta
+  const p = d.period || {};
+  const gen = d.generated_at ? new Date(d.generated_at).toLocaleString('zh-CN') : '';
+  document.getElementById('nav-meta').textContent =
+    `${p.markets || '?'} 市场 · ${p.start || ''} → ${p.end || ''} · 生成于 ${gen}`;
+
+  renderCards(d.combined.metrics, d.short_winners.metrics, d.portfolio_arb.metrics);
+  renderEquityChart(d);
+  renderDDChart(d);
+  renderPnlChart(d);
+  renderCompareTable(d);
+  renderTrades(_currentTab);
+
+  document.getElementById('content').style.display = '';
+}
+
+// ─── Metric cards ────────────────────────────────────────────────────
+function renderCards(mc, mp, ma) {
+  const cards = [
+    { label: '总收益率', value: fmt_pct(mc.total_return_pct), cls: mc.total_return_pct >= 0 ? 'pos' : 'neg', sub: `年化 ${fmt_pct(mc.ann_return_pct)}` },
+    { label: '夏普比率', value: fmt_num(mc.sharpe_ratio, 3), cls: mc.sharpe_ratio > 1 ? 'pos' : mc.sharpe_ratio > 0 ? 'neu' : 'neg', sub: `索提诺 ${fmt_num(mc.sortino_ratio, 3)}` },
+    { label: '最大回撤', value: fmt_pct(mc.max_drawdown_pct), cls: 'neg', sub: `卡玛 ${fmt_num(mc.calmar_ratio, 3)}` },
+    { label: '胜率', value: fmt_pct(mc.win_rate_pct), cls: mc.win_rate_pct >= 50 ? 'pos' : 'neg', sub: `盈亏比 ${fmt_num(mc.profit_factor, 2)}` },
+    { label: '交易次数', value: mc.n_trades || 0, cls: 'neu', sub: `均持仓 ${fmt_num(mc.avg_trade_duration_days, 1)} 天` },
+    { label: '年化波动率', value: fmt_pct(mc.ann_volatility_pct), cls: 'neu', sub: `期末资产 $${fmt_usd(mc.final_equity)}` },
+  ];
+
+  document.getElementById('combined-cards').innerHTML = cards.map(c => `
+    <div class="card ${c.cls}">
+      <div class="label">${c.label}</div>
+      <div class="value">${c.value}</div>
+      <div class="sub">${c.sub}</div>
+    </div>
+  `).join('');
+}
+
+// ─── Equity chart ────────────────────────────────────────────────────
+function renderEquityChart(d) {
+  const labels = d.combined.equity.map(p => p.date);
+  if (_equityChart) _equityChart.destroy();
+
+  const p = d.period || {};
+  const eodN   = p.eod_close_n   || 0;
+  const eodPnl = p.eod_close_pnl || 0;
+  const eodLabel = eodN > 0
+    ? `数据截止 (强平${eodN}笔 ${eodPnl >= 0 ? '+' : ''}$${Math.abs(eodPnl).toFixed(0)})`
+    : '数据截止';
+
+  // Show EOD note below the chart
+  const noteEl = document.getElementById('eod-note');
+  if (noteEl && eodN > 0) {
+    noteEl.textContent =
+      `注：${p.end} 数据截止强平 ${eodN} 笔，合计 ${eodPnl >= 0 ? '+' : ''}$${eodPnl.toFixed(2)}（非策略信号，仓位持有中被迫平仓）`;
+    noteEl.style.display = 'block';
+  }
+
+  const opts = chartOpts({ yLabel: 'USD', prefix: '$' });
+  opts.plugins.vertLine = { xLabel: p.end, label: eodLabel };
+
+  _equityChart = new Chart(document.getElementById('equity-chart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '组合 (Combined)',
+          data: d.combined.equity.map(p => p.value),
+          borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,.08)',
+          borderWidth: 2, pointRadius: 0, fill: true, tension: 0.3,
+        },
+        {
+          label: '做空赢家 (50%)',
+          data: d.short_winners.equity.map(p => p.value),
+          borderColor: '#3fb950', backgroundColor: 'transparent',
+          borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.3,
+          borderDash: [4, 3],
+        },
+        {
+          label: '组合套利 (50%)',
+          data: d.portfolio_arb.equity.map(p => p.value),
+          borderColor: '#bc8cff', backgroundColor: 'transparent',
+          borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.3,
+          borderDash: [2, 3],
+        },
+      ],
+    },
+    options: opts,
+  });
+}
+
+// ─── Drawdown chart ──────────────────────────────────────────────────
+function renderDDChart(d) {
+  const labels = d.combined.drawdown.map(p => p.date);
+  if (_ddChart) _ddChart.destroy();
+  const ddOpts = chartOpts({ yLabel: '%', suffix: '%', suggestedMax: 0 });
+  ddOpts.plugins.vertLine = { xLabel: (d.period || {}).end, label: '' };
+  _ddChart = new Chart(document.getElementById('dd-chart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '回撤 %',
+        data: d.combined.drawdown.map(p => p.value),
+        borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,.12)',
+        borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.2,
+      }],
+    },
+    options: ddOpts,
+  });
+}
+
+// ─── Daily PnL distribution ───────────────────────────────────────────
+function renderPnlChart(d) {
+  // Build histogram from all trades PnL
+  const pnls = (_data.all_trades || []).map(t => t.pnl_usd).filter(v => v !== 0);
+  if (!pnls.length) return;
+  const min = Math.floor(Math.min(...pnls) / 5) * 5;
+  const max = Math.ceil(Math.max(...pnls) / 5) * 5;
+  const bins = 20;
+  const step = (max - min) / bins || 1;
+  const counts = Array(bins).fill(0);
+  const binLabels = [];
+  for (let i = 0; i < bins; i++) {
+    binLabels.push((min + i * step).toFixed(1));
+  }
+  pnls.forEach(v => {
+    const idx = Math.min(Math.floor((v - min) / step), bins - 1);
+    if (idx >= 0) counts[idx]++;
+  });
+  const colors = binLabels.map(l => parseFloat(l) >= 0 ? 'rgba(63,185,80,.65)' : 'rgba(248,81,73,.65)');
+
+  if (_pnlChart) _pnlChart.destroy();
+  _pnlChart = new Chart(document.getElementById('pnl-chart'), {
+    type: 'bar',
+    data: {
+      labels: binLabels,
+      datasets: [{ label: '次数', data: counts, backgroundColor: colors, borderWidth: 0 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: ctx => `${ctx.raw} 笔`
+      }}},
+      scales: {
+        x: { ticks: { color: '#8b949e', font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { display: false } },
+        y: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: 'rgba(48,54,61,.5)' } },
+      },
+    },
+  });
+}
+
+// ─── Compare table ───────────────────────────────────────────────────
+function renderCompareTable(d) {
+  const mc = d.combined.metrics;
+  const mp = d.short_winners.metrics;
+  const ma = d.portfolio_arb.metrics;
+
+  const rows = [
+    ['总收益率', fmt_pct(mc.total_return_pct), fmt_pct(mp.total_return_pct), fmt_pct(ma.total_return_pct), 'pct'],
+    ['年化收益率', fmt_pct(mc.ann_return_pct), fmt_pct(mp.ann_return_pct), fmt_pct(ma.ann_return_pct), 'pct'],
+    ['年化波动率', fmt_pct(mc.ann_volatility_pct), fmt_pct(mp.ann_volatility_pct), fmt_pct(ma.ann_volatility_pct), 'neu'],
+    ['夏普比率', fmt_num(mc.sharpe_ratio,3), fmt_num(mp.sharpe_ratio,3), fmt_num(ma.sharpe_ratio,3), 'sharpe'],
+    ['索提诺比率', fmt_num(mc.sortino_ratio,3), fmt_num(mp.sortino_ratio,3), fmt_num(ma.sortino_ratio,3), 'sharpe'],
+    ['卡玛比率', fmt_num(mc.calmar_ratio,3), fmt_num(mp.calmar_ratio,3), fmt_num(ma.calmar_ratio,3), 'sharpe'],
+    ['最大回撤', fmt_pct(mc.max_drawdown_pct), fmt_pct(mp.max_drawdown_pct), fmt_pct(ma.max_drawdown_pct), 'dd'],
+    ['胜率', fmt_pct(mc.win_rate_pct), fmt_pct(mp.win_rate_pct), fmt_pct(ma.win_rate_pct), 'wr'],
+    ['盈亏比', fmt_num(mc.profit_factor,3), fmt_num(mp.profit_factor,3), fmt_num(ma.profit_factor,3), 'pf'],
+    ['交易次数', mc.n_trades||0, mp.n_trades||0, ma.n_trades||0, 'neu'],
+    ['平均盈利', fmt_usd(mc.avg_win_usd), fmt_usd(mp.avg_win_usd), fmt_usd(ma.avg_win_usd), 'neu'],
+    ['平均亏损', fmt_usd(mc.avg_loss_usd), fmt_usd(mp.avg_loss_usd), fmt_usd(ma.avg_loss_usd), 'neu'],
+    ['平均持仓天数', fmt_num(mc.avg_trade_duration_days,1), fmt_num(mp.avg_trade_duration_days,1), fmt_num(ma.avg_trade_duration_days,1), 'neu'],
+    ['期末资产', '$'+fmt_usd(mc.final_equity), '$'+fmt_usd(mp.final_equity), '$'+fmt_usd(ma.final_equity), 'neu'],
+  ];
+
+  const thead = `<thead><tr>
+    <th>指标</th>
+    <th style="color:#58a6ff">组合策略</th>
+    <th style="color:#3fb950">做空赢家 (50%)</th>
+    <th style="color:#bc8cff">组合套利 (50%)</th>
+  </tr></thead>`;
+
+  const tbody = rows.map(([label, vc, vp, va, type]) => {
+    const cc = colClass(vc, type);
+    const cp = colClass(vp, type);
+    const ca = colClass(va, type);
+    return `<tr>
+      <td class="row-label">${label}</td>
+      <td class="${cc}">${vc}</td>
+      <td class="${cp}">${vp}</td>
+      <td class="${ca}">${va}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('compare-table').innerHTML = thead + '<tbody>' + tbody + '</tbody>';
+}
+
+function colClass(val, type) {
+  const n = parseFloat(String(val).replace(/[^0-9.-]/g,''));
+  if (type === 'pct') return n > 0 ? 'pos' : n < 0 ? 'neg' : '';
+  if (type === 'sharpe') return n > 1 ? 'pos' : n > 0 ? '' : 'neg';
+  if (type === 'dd')  return 'neg';
+  if (type === 'wr')  return n >= 50 ? 'pos' : 'neg';
+  if (type === 'pf')  return n > 1 ? 'pos' : n > 0 ? '' : 'neg';
+  return '';
+}
+
+// ─── Trades table ────────────────────────────────────────────────────
+function switchTab(tab) {
+  _currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', ['all','pair','port'][i] === tab);
+  });
+  renderTrades(tab);
+}
+
+function renderTrades(tab) {
+  if (!_data) return;
+  let trades = tab === 'all'  ? _data.all_trades :
+               tab === 'pair' ? _data.short_winners.trades :
+                                _data.portfolio_arb.trades;
+  trades = trades || [];
+
+  const rows = trades.map(t => {
+    const stratBadge = t.strategy === 'sw'
+      ? '<span class="badge badge-pair">做空</span>'
+      : '<span class="badge badge-port">套利</span>';
+    const dirRaw = String(t.direction).toLowerCase();
+    const dirBadge = dirRaw.includes('long') || dirRaw === 'long_spread'
+      ? '<span class="badge badge-long">买入</span>'
+      : dirRaw.includes('short') || dirRaw === 'short_spread'
+      ? '<span class="badge badge-short">卖出</span>'
+      : `<span class="badge">${escHtml(t.direction)}</span>`;
+    const pnlCls = t.pnl_usd > 0 ? 'pnl-pos' : t.pnl_usd < 0 ? 'pnl-neg' : 'pnl-zero';
+    const pnlStr = (t.pnl_usd > 0 ? '+' : '') + '$' + Math.abs(t.pnl_usd).toFixed(2);
+    const rawName = t.name ? t.name.substring(0, 55) + (t.name.length > 55 ? '…' : '') : '—';
+    const nameStr = escHtml(rawName);
+    const detailStr = t.detail ? `<br><span style="color:var(--muted);font-size:10px">${escHtml(t.detail)}</span>` : '';
+    const dur = t.duration != null ? t.duration + 'd' : '—';
+    const closeReason = escHtml(t.closed_by || '—');
+    return `<tr>
+      <td>${stratBadge}</td>
+      <td>${nameStr}${detailStr}</td>
+      <td>${dirBadge}</td>
+      <td>${t.open_date ? escHtml(t.open_date.substring(0,10)) : '—'}</td>
+      <td>${t.close_date && t.close_date !== 'None' ? escHtml(t.close_date.substring(0,10)) : '<span style="color:var(--yellow)">持仓中</span>'}</td>
+      <td style="color:var(--muted)">${dur}</td>
+      <td class="${pnlCls}" style="text-align:right">${pnlStr}</td>
+      <td style="color:var(--muted)">${closeReason}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('trades-body').innerHTML = rows || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">暂无交易记录</td></tr>';
+
+  const wins  = trades.filter(t => t.pnl_usd > 0).length;
+  const total = trades.length;
+  const sumPnl = trades.reduce((s, t) => s + t.pnl_usd, 0);
+  document.getElementById('trades-meta').textContent =
+    `共 ${total} 笔交易 · 盈利 ${wins} 笔 · 亏损 ${total - wins} 笔 · 合计盈亏 ${sumPnl >= 0 ? '+' : ''}$${sumPnl.toFixed(2)}`;
+}
+
+// ─── Chart.js shared options ─────────────────────────────────────────
+function chartOpts({ yLabel = '', prefix = '', suffix = '', suggestedMax }) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: {
+        labels: { color: '#8b949e', font: { size: 11 }, boxWidth: 24 },
+      },
+      tooltip: {
+        backgroundColor: '#1c2128',
+        borderColor: '#30363d', borderWidth: 1,
+        titleColor: '#8b949e', bodyColor: '#e6edf3',
+        callbacks: {
+          label: ctx => `${ctx.dataset.label}: ${prefix}${ctx.raw?.toFixed(2) ?? ''}${suffix}`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        ticks: { color: '#8b949e', font: { size: 10 }, maxTicksLimit: 10, maxRotation: 0 },
+        grid: { color: 'rgba(48,54,61,.4)' },
+      },
+      y: {
+        ticks: {
+          color: '#8b949e', font: { size: 10 },
+          callback: v => prefix + v.toFixed(0) + suffix,
+        },
+        grid: { color: 'rgba(48,54,61,.4)' },
+        ...(suggestedMax !== undefined ? { suggestedMax } : {}),
+      },
+    },
+  };
+}
+
+// ─── Format helpers ──────────────────────────────────────────────────
+function fmt_pct(v) {
+  if (v == null) return '—';
+  const n = parseFloat(v);
+  return (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+}
+function fmt_num(v, dec = 2) {
+  if (v == null || v === Infinity) return '—';
+  return parseFloat(v).toFixed(dec);
+}
+function fmt_usd(v) {
+  if (v == null) return '—';
+  return parseFloat(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ─── Utilities ───────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── UI state helpers ────────────────────────────────────────────────
+function showLoading(msg) {
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('loading-msg').textContent = msg || '加载中…';
+  document.getElementById('content').style.display = 'none';
+}
+function hideLoading() {
+  document.getElementById('loading').style.display = 'none';
+}
+function showError(msg) {
+  hideLoading();
+  const box = document.getElementById('error-box');
+  box.textContent = '错误: ' + msg;
+  box.style.display = 'block';
+}
+</script>
+</body>
+</html>

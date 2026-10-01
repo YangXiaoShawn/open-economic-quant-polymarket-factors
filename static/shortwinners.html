@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>做空赢家 — MOM 反转实时信号</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#0d1117; --surface:#161b22; --surface2:#1c2128; --border:#30363d;
+  --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff;
+  --short:#f85149; --long:#3fb950; --watch:#d29922; --neutral:#6e7681;
+  --short-bg:rgba(248,81,73,0.10); --long-bg:rgba(63,185,80,0.10);
+}
+body { font-family:'SF Mono','Consolas','Menlo',monospace; background:var(--bg);
+       color:var(--text); font-size:13px; min-height:100vh; }
+header { position:sticky; top:0; z-index:100; background:var(--surface);
+         border-bottom:1px solid var(--border); padding:0 20px; }
+.header-row1 { display:flex; align-items:center; gap:12px; min-height:48px;
+               flex-wrap:wrap; padding:6px 0; }
+.logo { font-size:15px; font-weight:700; letter-spacing:1px; color:var(--short); }
+.logo span { color:var(--muted); font-weight:400; }
+.status-pill { display:flex; align-items:center; gap:6px; padding:3px 10px;
+               border-radius:20px; border:1px solid var(--border); font-size:11px; color:var(--muted); }
+.status-dot { width:7px; height:7px; border-radius:50%; background:var(--neutral); flex-shrink:0; }
+.status-dot.live { background:var(--long); animation:pulse 2s infinite; }
+.status-dot.fetching { background:var(--watch); animation:pulse 0.8s infinite; }
+.status-dot.error { background:var(--short); }
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+.header-spacer { flex:1; }
+.update-info { font-size:11px; color:var(--muted); text-align:right; }
+.update-info b { color:var(--text); }
+.btn-refresh { background:none; border:1px solid var(--border); color:var(--text);
+               padding:5px 12px; border-radius:6px; cursor:pointer; font-size:12px;
+               font-family:inherit; transition:border-color .2s, background .2s; }
+.btn-refresh:hover { border-color:var(--accent); background:rgba(88,166,255,0.08); }
+.btn-refresh:active { transform:scale(0.97); }
+.nav-row { display:flex; gap:8px; padding:6px 0 10px; flex-wrap:wrap; }
+.nav-row a { color:var(--muted); text-decoration:none; font-size:12px; padding:4px 10px;
+             border-radius:5px; border:1px solid transparent; }
+.nav-row a.active { color:var(--text); border-color:var(--border); }
+main { max-width:1280px; margin:0 auto; padding:16px 20px 60px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:8px;
+        padding:14px 16px; margin-bottom:14px; }
+.card h2 { font-size:13px; color:var(--accent); margin-bottom:8px; }
+.note { color:var(--muted); font-size:12px; line-height:1.7; }
+.note b { color:var(--short); }
+.params { display:flex; gap:14px; flex-wrap:wrap; font-size:11px; color:var(--muted); margin-top:8px; }
+.params span b { color:var(--text); }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+th { text-align:left; color:var(--muted); font-weight:600; padding:7px 8px;
+     border-bottom:1px solid var(--border); white-space:nowrap; cursor:default; }
+td { padding:7px 8px; border-bottom:1px solid var(--surface2); white-space:nowrap; }
+tr:hover td { background:var(--surface2); }
+.q { max-width:430px; overflow:hidden; text-overflow:ellipsis; }
+.mom { color:var(--short); font-weight:700; }
+.no-entry { color:var(--long); font-weight:700; }
+.dim { color:var(--muted); }
+.empty { text-align:center; color:var(--muted); padding:40px 0; }
+.badge { display:inline-block; padding:1px 7px; border-radius:10px; font-size:10px;
+         background:var(--short-bg); color:var(--short); border:1px solid rgba(248,81,73,0.4); }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-row1">
+    <div class="logo">SHORT-WINNERS <span>// MOM 反转实时信号</span></div>
+    <div class="status-pill"><div class="status-dot" id="dot"></div><span id="status-text">连接中…</span></div>
+    <div class="header-spacer"></div>
+    <div class="update-info">
+      上次扫描 <b id="last-update">—</b><br>
+      下次自动 <b id="countdown">—</b>
+    </div>
+    <button class="btn-refresh" id="btn-refresh" onclick="forceScan()">⟳ 立即重扫</button>
+  </div>
+  <div class="nav-row">
+    <a href="/">实时扫描</a>
+    <a href="/backtest">回测报告</a>
+    <a href="/factors">因子研究</a>
+    <a href="/threefactor">三因子模型</a>
+    <a href="/shortwinners" class="active">做空赢家</a>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <h2>策略说明</h2>
+    <div class="note" id="strategy-note">
+      做空 30 日涨幅最大的市场（= 买 NO）。扩样研究（4000 市场 × 574 天，107 期样本外）：
+      输家-赢家 Δp 差 <b>+8.66pp/5天 (t=7.5)</b>；空头腿扣真实点差成本后
+      <b>+20.6%/5天 (t=9.1，胜率 84%)</b>。执行：按 no_entry 买 NO，单名等额，
+      10-20 名分散，持有约 5 天滚动。<b>注意容量：候选市场日成交量小，单名建议 $100-500。</b>
+    </div>
+    <div class="params" id="params"></div>
+  </div>
+
+  <div class="card">
+    <h2>今日空头候选 <span class="badge" id="n-badge">0</span></h2>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>#</th><th>市场</th><th>现价</th><th>30日动量</th><th>Δp30</th>
+          <th>NO 入场价</th><th>点差</th><th>24h成交</th><th>距结算</th>
+        </tr></thead>
+        <tbody id="tbody"><tr><td colspan="9" class="empty">加载中…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+const SCAN_INTERVAL = 600;          // server-side rescan period (s)
+let lastScanTs = null;
+let ws = null;
+
+function fmtTime(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleTimeString("zh-CN", {hour12:false});
+}
+
+function setStatus(cls, text) {
+  const dot = document.getElementById("dot");
+  dot.className = "status-dot " + cls;
+  document.getElementById("status-text").textContent = text;
+}
+
+function render(data) {
+  if (!data) return;
+  if (data.error) { setStatus("error", "扫描失败"); return; }
+  lastScanTs = data.generated_at ? new Date(data.generated_at) : new Date();
+  document.getElementById("last-update").textContent = fmtTime(data.generated_at);
+  document.getElementById("n-badge").textContent = data.n_candidates ?? 0;
+
+  if (data.params) {
+    const p = data.params;
+    document.getElementById("params").innerHTML =
+      `<span>价格带 <b>${p.price_band[0]}–${p.price_band[1]}</b></span>` +
+      `<span>动量窗口 <b>${p.mom_lookback_days}天</b></span>` +
+      `<span>24h量 ≥ <b>$${p.min_vol24h_usd}</b></span>` +
+      `<span>点差 ≤ <b>${p.max_spread}</b></span>` +
+      `<span>距结算 ≥ <b>${p.min_days_to_end}天</b></span>`;
+  }
+
+  const tbody = document.getElementById("tbody");
+  const rows = data.candidates || [];
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">今日无候选通过过滤</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map((r, i) => `
+    <tr>
+      <td class="dim">${i + 1}</td>
+      <td class="q" title="${r.question}">${r.question}</td>
+      <td>${r.price?.toFixed(3) ?? "—"}</td>
+      <td class="mom">+${r.mom30_pct?.toFixed(1)}%</td>
+      <td>${r.dp30_pp > 0 ? "+" : ""}${r.dp30_pp?.toFixed(1)}pp</td>
+      <td class="no-entry">${r.no_entry?.toFixed(3) ?? "—"}</td>
+      <td>${r.spread != null ? r.spread.toFixed(3) : '<span class="dim">—</span>'}</td>
+      <td>$${(r.vol24h_usd ?? 0).toLocaleString()}</td>
+      <td class="dim">${r.days_to_end != null ? r.days_to_end + "d" : "—"}</td>
+    </tr>`).join("");
+  setStatus("live", "实时");
+}
+
+async function load(force = false) {
+  setStatus("fetching", force ? "重扫中…" : "加载中…");
+  const btn = document.getElementById("btn-refresh");
+  btn.disabled = true;
+  try {
+    const r = await fetch("/api/short-winners" + (force ? "?force=true" : ""));
+    render(await r.json());
+  } catch (e) {
+    setStatus("error", "请求失败");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function forceScan() { load(true); }
+
+function connectWS() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onopen = () => setStatus("live", "实时");
+  ws.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === "short_winners") render(msg.data);
+      else if (msg.type === "heartbeat") ws.send(JSON.stringify({type:"ping"}));
+    } catch (_) {}
+  };
+  ws.onclose = () => { setStatus("error", "已断开，重连中…"); setTimeout(connectWS, 3000); };
+  ws.onerror  = () => ws.close();
+}
+
+// countdown to next server-side auto-scan
+setInterval(() => {
+  if (!lastScanTs) return;
+  const next = new Date(lastScanTs.getTime() + SCAN_INTERVAL * 1000);
+  let s = Math.max(0, Math.round((next - new Date()) / 1000));
+  const m = Math.floor(s / 60); s = s % 60;
+  document.getElementById("countdown").textContent = `${m}:${String(s).padStart(2,"0")}`;
+}, 1000);
+
+// polling fallback in case WS push is missed
+setInterval(() => load(false), (SCAN_INTERVAL + 60) * 1000);
+
+load(false);
+connectWS();
+</script>
+</body>
+</html>
