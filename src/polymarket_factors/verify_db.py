@@ -1,8 +1,7 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import traceback
-import db
-
+from polymarket_factors import db
 tests = [
     ("get_events",              lambda: db.get_events()),
     ("get_markets(2 cols)",     lambda: db.get_markets("market_id, question")),

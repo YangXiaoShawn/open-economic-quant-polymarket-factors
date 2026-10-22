@@ -5,15 +5,15 @@ from pathlib import Path
 
 import pandas as pd
 
-import backtest
-from backtest import WalkForwardBacktest
-from config import (
+from polymarket_factors import backtest
+from polymarket_factors.backtest import WalkForwardBacktest
+from polymarket_factors.config import (
     BACKTEST_LOOKBACK_DAYS,
     BACKTEST_MAX_MARKETS,
     BACKTEST_MIN_AGE_DAYS,
     BACKTEST_N_MARKETS,
 )
-from data_fetcher import build_price_matrix, fetch_active_markets, fetch_recently_closed_markets
+from polymarket_factors.data_fetcher import build_price_matrix, fetch_active_markets, fetch_recently_closed_markets
 
 
 def build_backtest_prices() -> pd.DataFrame:

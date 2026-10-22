@@ -29,7 +29,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sps
 
-from expanded_factor_research import (
+from polymarket_factors.expanded_factor_research import (
     FACTORS,
     MIN_XS,
     STEP,
@@ -37,7 +37,7 @@ from expanded_factor_research import (
     load_panel,
     summarize_ic,
 )
-from momrev_strategy import (
+from polymarket_factors.momrev_strategy import (
     SPREAD_DEFAULT,
     hourly_spread_estimates,
     trade_spread_estimates,

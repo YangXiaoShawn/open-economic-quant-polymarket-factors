@@ -8,14 +8,13 @@ import sys
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "src" / "polymarket_factors"))
 
 import math
 import pandas as pd
 import pytest
 
-from strategy import Trade, Side, PairTradingStrategy
-from pair_selector import PairInfo
+from polymarket_factors.strategy import Trade, Side, PairTradingStrategy
+from polymarket_factors.pair_selector import PairInfo
 
 
 def _make_pair(hedge_ratio: float = 1.0, spread_std: float = 0.05) -> PairInfo:

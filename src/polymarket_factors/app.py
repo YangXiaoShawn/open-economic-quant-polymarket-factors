@@ -30,7 +30,7 @@ from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from scanner import MarketScanner
+from polymarket_factors.scanner import MarketScanner
 
 logging.basicConfig(
     level=logging.INFO,
@@ -125,7 +125,7 @@ def _load_sw_cache() -> Optional[dict]:
 
 async def _run_sw_scan() -> dict:
     """Run the short-winners scan in a worker thread, cache + broadcast."""
-    from short_winners_scanner import scan_payload
+    from polymarket_factors.short_winners_scanner import scan_payload
     loop = asyncio.get_running_loop()
     data = await loop.run_in_executor(None, scan_payload)
     if "error" not in data:
@@ -255,7 +255,7 @@ def _load_local_backtest_prices() -> Optional[pd.DataFrame]:
             except Exception:
                 pass
     try:
-        from expanded_factor_research import load_panel
+        from polymarket_factors.expanded_factor_research import load_panel
         prices, volume, meta = load_panel()
     except Exception as exc:
         logger.warning("Local panel unavailable (%s) — falling back to API fetch", exc)
@@ -301,12 +301,12 @@ def _fetch_backtest_prices() -> pd.DataFrame:
 def _fetch_backtest_prices_api() -> pd.DataFrame:
     """Fetch a longer price history specifically for backtesting."""
     import hashlib
-    from config import (
+    from polymarket_factors.config import (
         BACKTEST_LOOKBACK_DAYS, BACKTEST_MIN_AGE_DAYS,
         BACKTEST_N_MARKETS, BACKTEST_MAX_MARKETS,
         MIN_DAILY_VOLUME_USD, RESOLUTION_BUFFER_DAYS, PRICE_CLIP_LOW, PRICE_CLIP_HIGH,
     )
-    from data_fetcher import fetch_active_markets, build_price_matrix
+    from polymarket_factors.data_fetcher import fetch_active_markets, build_price_matrix
 
     bt_params = {
         "min_age":  BACKTEST_MIN_AGE_DAYS,
@@ -336,7 +336,7 @@ def _fetch_backtest_prices_api() -> pd.DataFrame:
         "Fetching %d-day price history for backtest (up to %d markets, min_age=%dd)…",
         BACKTEST_LOOKBACK_DAYS, BACKTEST_MAX_MARKETS, BACKTEST_MIN_AGE_DAYS,
     )
-    from data_fetcher import fetch_recently_closed_markets
+    from polymarket_factors.data_fetcher import fetch_recently_closed_markets
     active_markets = fetch_active_markets(limit=BACKTEST_N_MARKETS)
     closed_markets = fetch_recently_closed_markets(limit=1000, closed_within_days=365)
     # Combine; deduplicate by question label so closed markets don't shadow active ones
@@ -369,7 +369,7 @@ def _fetch_backtest_prices_api() -> pd.DataFrame:
 
 def _compute_backtest_sync(prices: pd.DataFrame) -> dict:
     """Run full combined backtest and return JSON-serialisable dict."""
-    from combined_backtest import CombinedBacktest
+    from polymarket_factors.combined_backtest import CombinedBacktest
 
     logger.info("Running combined backtest on %d markets x %d days…",
                 prices.shape[1], prices.shape[0])
@@ -582,10 +582,10 @@ def _compute_factors_sync(force: bool = False) -> dict:
     # Always reload factor_engine to pick up any code changes without server restart
     if "factor_engine" in sys.modules:
         importlib.reload(sys.modules["factor_engine"])
-    from config import BACKTEST_LOOKBACK_DAYS, BACKTEST_MIN_AGE_DAYS, BACKTEST_N_MARKETS, BACKTEST_MAX_MARKETS
-    from data_fetcher import fetch_active_markets, build_price_matrix, _market_daily_volume, _market_end_date
-    from factor_engine import run_all_factors, compute_factor_correlation, build_fm_inputs, run_fama_macbeth, compute_fm_composite_score
-    from resolved_data import fetch_resolved_markets, load_calibration_table, calibration_rmse
+    from polymarket_factors.config import BACKTEST_LOOKBACK_DAYS, BACKTEST_MIN_AGE_DAYS, BACKTEST_N_MARKETS, BACKTEST_MAX_MARKETS
+    from polymarket_factors.data_fetcher import fetch_active_markets, build_price_matrix, _market_daily_volume, _market_end_date
+    from polymarket_factors.factor_engine import run_all_factors, compute_factor_correlation, build_fm_inputs, run_fama_macbeth, compute_fm_composite_score
+    from polymarket_factors.resolved_data import fetch_resolved_markets, load_calibration_table, calibration_rmse
 
     t0 = _time.time()
 

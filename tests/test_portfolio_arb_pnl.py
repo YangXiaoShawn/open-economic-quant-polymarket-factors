@@ -8,13 +8,12 @@ import sys
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "src" / "polymarket_factors"))
 
 import math
 import pandas as pd
 import pytest
 
-from portfolio_arb import PortfolioArbStrategy, PortfolioArbTrade
+from polymarket_factors.portfolio_arb import PortfolioArbStrategy, PortfolioArbTrade
 
 
 def _make_trade(direction: str, open_price: float) -> PortfolioArbTrade:

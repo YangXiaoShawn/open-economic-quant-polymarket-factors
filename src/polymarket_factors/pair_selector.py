@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 from statsmodels.tsa.stattools import coint
 
-from config import (
+from polymarket_factors.config import (
     COINTEGRATION_PVALUE,
     MIN_CORRELATION,
     MAX_HALF_LIFE_DAYS,

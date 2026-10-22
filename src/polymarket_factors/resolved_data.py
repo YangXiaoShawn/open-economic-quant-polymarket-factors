@@ -19,8 +19,8 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from data_fetcher import _session, _extract_yes_token, fetch_daily_prices, CACHE_DIR
-from config import POLYMARKET_GAMMA_API
+from polymarket_factors.data_fetcher import _session, _extract_yes_token, fetch_daily_prices, CACHE_DIR
+from polymarket_factors.config import POLYMARKET_GAMMA_API
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +176,7 @@ def _fetch_pre_settlement_price(market: Dict) -> Optional[float]:
     不使用 fetch_daily_prices()（它会应用 7 天 resolution buffer，
     会截掉大部分短期赛事市场的有效数据）。
     """
-    from config import POLYMARKET_CLOB_API as _CLOB_API
+    from polymarket_factors.config import POLYMARKET_CLOB_API as _CLOB_API
     token_id = _extract_yes_token(market)
     if not token_id:
         return None

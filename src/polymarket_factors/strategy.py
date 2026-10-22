@@ -19,14 +19,14 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from config import (
+from polymarket_factors.config import (
     ENTRY_ZSCORE,
     EXIT_ZSCORE,
     STOP_LOSS_ZSCORE,
     ZSCORE_WINDOW,
     POSITION_SIZE_USD,
 )
-from pair_selector import PairInfo, compute_rolling_zscore
+from polymarket_factors.pair_selector import PairInfo, compute_rolling_zscore
 
 
 class Side(Enum):

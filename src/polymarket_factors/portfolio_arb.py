@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from config import TRANSACTION_COST, POSITION_SIZE_USD, ZSCORE_WINDOW
+from polymarket_factors.config import TRANSACTION_COST, POSITION_SIZE_USD, ZSCORE_WINDOW
 
 logger = logging.getLogger(__name__)
 

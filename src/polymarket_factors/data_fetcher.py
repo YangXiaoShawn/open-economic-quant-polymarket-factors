@@ -29,7 +29,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from config import (
+from polymarket_factors.config import (
     POLYMARKET_GAMMA_API,
     POLYMARKET_CLOB_API,
     DEFAULT_LOOKBACK_DAYS,

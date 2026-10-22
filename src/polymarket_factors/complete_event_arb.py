@@ -29,7 +29,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from config import TRANSACTION_COST, POSITION_SIZE_USD
+from polymarket_factors.config import TRANSACTION_COST, POSITION_SIZE_USD
 
 logger = logging.getLogger(__name__)
 

@@ -10,8 +10,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from backtest import WalkForwardBacktest
-from config import (
+from polymarket_factors.backtest import WalkForwardBacktest
+from polymarket_factors.config import (
     BACKTEST_LOOKBACK_DAYS,
     BACKTEST_MAX_MARKETS,
     BACKTEST_MIN_AGE_DAYS,
@@ -19,8 +19,8 @@ from config import (
     POSITION_SIZE_USD,
     TRANSACTION_COST,
 )
-from data_fetcher import build_price_matrix, fetch_active_markets
-from factor_engine import (
+from polymarket_factors.data_fetcher import build_price_matrix, fetch_active_markets
+from polymarket_factors.factor_engine import (
     IC_FORWARD_DAYS,
     MOM_LOOKBACK,
     N_DECILES,
@@ -37,7 +37,7 @@ from factor_engine import (
     compute_volatility,
     run_all_factors,
 )
-from portfolio_arb import run_portfolio_arb_walkforward
+from polymarket_factors.portfolio_arb import run_portfolio_arb_walkforward
 
 
 FACTOR_NAMES = [

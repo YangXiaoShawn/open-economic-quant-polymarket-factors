@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-from config import POLYMARKET_GAMMA_API, POLYMARKET_CLOB_API, MIN_DATA_POINTS
+from polymarket_factors.config import POLYMARKET_GAMMA_API, POLYMARKET_CLOB_API, MIN_DATA_POINTS
 
 logger = logging.getLogger(__name__)
 

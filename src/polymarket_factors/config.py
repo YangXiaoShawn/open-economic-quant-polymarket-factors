@@ -1,13 +1,17 @@
-"""Central configuration for Polymarket Pair Trading Strategy."""
+"""Central configuration for Polymarket factor research and pair-trading backtests."""
 
 import os
 from pathlib import Path
 
-# Load .env (if present) so API endpoints and secrets can be overridden without
-# editing source code.  python-dotenv is a no-op when the file doesn't exist.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = PROJECT_ROOT / "data"
+FIXTURES_DIR = DATA_DIR / "fixtures"
+REPORTS_DIR = PROJECT_ROOT / "reports"
+FIGURES_DIR = REPORTS_DIR / "figs"
+
 try:
     from dotenv import load_dotenv
-    load_dotenv(Path(__file__).parent / ".env")
+    load_dotenv(PROJECT_ROOT / ".env")
 except ImportError:
     pass
 

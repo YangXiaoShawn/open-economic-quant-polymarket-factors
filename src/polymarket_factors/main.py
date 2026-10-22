@@ -22,15 +22,15 @@ from datetime import datetime
 
 import pandas as pd
 
-from config import (
+from polymarket_factors.config import (
     DEFAULT_LOOKBACK_DAYS,
     MAX_OPEN_PAIRS,
     INITIAL_CAPITAL,
 )
-from data_fetcher import fetch_active_markets, build_price_matrix, _synthetic_price_matrix
-from pair_selector import select_pairs
-from backtest import WalkForwardBacktest
-from report import generate_full_report, print_report, generate_combined_report
+from polymarket_factors.data_fetcher import fetch_active_markets, build_price_matrix, _synthetic_price_matrix
+from polymarket_factors.pair_selector import select_pairs
+from polymarket_factors.backtest import WalkForwardBacktest
+from polymarket_factors.report import generate_full_report, print_report, generate_combined_report
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -158,8 +158,8 @@ def _run_pair_only(args, prices: pd.DataFrame) -> None:
 
 def _run_combined(args, prices: pd.DataFrame) -> None:
     """Three-strategy combined backtest."""
-    from event_data import load_all_event_data
-    from combined_backtest import CombinedBacktest
+    from polymarket_factors.event_data import load_all_event_data
+    from polymarket_factors.combined_backtest import CombinedBacktest
 
     # Fetch event groups for event arb strategies
     print("\n[2] Fetching event groups for Complete Event Arb + Portfolio Arb ...")
@@ -187,7 +187,7 @@ def _run_combined(args, prices: pd.DataFrame) -> None:
     # Report
     print("\n[4] Generating combined report ...")
     if args.no_charts:
-        from report import print_combined_report
+        from polymarket_factors.report import print_combined_report
         print_combined_report(result)
     else:
         generate_combined_report(result)

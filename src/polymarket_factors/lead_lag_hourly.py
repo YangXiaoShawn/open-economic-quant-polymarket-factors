@@ -30,8 +30,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sps
 
-import db
-
+from polymarket_factors import db
 H_START, H_END = "2025-10-01", "2026-03-29"
 MIN_DAILY_VOL = 500.0
 MIN_OBS_D = 30          # min daily rows in window for market selection

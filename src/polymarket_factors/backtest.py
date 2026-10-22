@@ -19,7 +19,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from config import (
+from polymarket_factors.config import (
     INITIAL_CAPITAL,
     TRANSACTION_COST,
     POSITION_SIZE_USD,
@@ -28,8 +28,8 @@ from config import (
     TRAIN_DAYS,
     STEP_DAYS,
 )
-from pair_selector import select_pairs, PairInfo
-from strategy import PairTradingStrategy, Trade, run_all_pairs
+from polymarket_factors.pair_selector import select_pairs, PairInfo
+from polymarket_factors.strategy import PairTradingStrategy, Trade, run_all_pairs
 
 logger = logging.getLogger(__name__)
 

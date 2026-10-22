@@ -4,14 +4,14 @@ from pathlib import Path
 
 import pandas as pd
 
-from config import (
+from polymarket_factors.config import (
     BACKTEST_LOOKBACK_DAYS,
     BACKTEST_MAX_MARKETS,
     BACKTEST_MIN_AGE_DAYS,
     BACKTEST_N_MARKETS,
 )
-from data_fetcher import build_price_matrix, fetch_active_markets
-from factor_engine import run_all_factors
+from polymarket_factors.data_fetcher import build_price_matrix, fetch_active_markets
+from polymarket_factors.factor_engine import run_all_factors
 
 
 def bh_fdr(pvalues: pd.Series) -> pd.Series:

@@ -28,16 +28,16 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from config import (
+from polymarket_factors.config import (
     INITIAL_CAPITAL, TRANSACTION_COST, POSITION_SIZE_USD,
     MAX_OPEN_PAIRS, TRAIN_DAYS, STEP_DAYS, ZSCORE_WINDOW,
 )
 try:
-    from config import PAIR_STEP_DAYS
+    from polymarket_factors.config import PAIR_STEP_DAYS
 except ImportError:
     PAIR_STEP_DAYS = STEP_DAYS
-from portfolio_arb import run_portfolio_arb, run_portfolio_arb_walkforward, PortfolioArbTrade
-from backtest import compute_metrics
+from polymarket_factors.portfolio_arb import run_portfolio_arb, run_portfolio_arb_walkforward, PortfolioArbTrade
+from polymarket_factors.backtest import compute_metrics
 
 logger = logging.getLogger(__name__)
 

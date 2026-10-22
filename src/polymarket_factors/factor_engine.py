@@ -29,7 +29,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from config import DEFAULT_LOOKBACK_DAYS
+from polymarket_factors.config import DEFAULT_LOOKBACK_DAYS
 
 logger = logging.getLogger(__name__)
 

@@ -26,11 +26,11 @@ import matplotlib.gridspec as gridspec
 import matplotlib.dates as mdates
 import seaborn as sns
 
-from backtest import BacktestResult
-from strategy import Trade, Side
+from polymarket_factors.backtest import BacktestResult
+from polymarket_factors.strategy import Trade, Side
 
 if TYPE_CHECKING:
-    from combined_backtest import CombinedResult
+    from polymarket_factors.combined_backtest import CombinedResult
 
 logger = logging.getLogger(__name__)
 
@@ -481,7 +481,7 @@ def generate_combined_report(result: "CombinedResult") -> None:
     plot_combined_equity(result)
     plot_combined_trades(result)
     if result.signals_by_pair:
-        from backtest import BacktestResult as BR
+        from polymarket_factors.backtest import BacktestResult as BR
         dummy = BR(
             trades=result.pair_trades,
             equity_curve=result.equity_pair,

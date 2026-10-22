@@ -32,12 +32,12 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sps
 
-import db
-from config import (
+from polymarket_factors import db
+from polymarket_factors.config import (
     MIN_DAILY_VOLUME_USD,
     TRANSACTION_COST,
 )
-from factor_engine import run_fama_macbeth
+from polymarket_factors.factor_engine import run_fama_macbeth
 
 START, END = "2024-09-01", "2026-03-29"
 MIN_OBS      = 60       # min daily observations per market in window

@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from data_fetcher import build_price_matrix, fetch_active_markets
+from polymarket_factors.data_fetcher import build_price_matrix, fetch_active_markets
 
 MOM_LB = 30            # momentum lookback (days)
 MIN_PX, MAX_PX = 0.15, 0.85   # core band from research

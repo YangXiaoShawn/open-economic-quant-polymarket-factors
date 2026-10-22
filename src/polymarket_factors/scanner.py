@@ -23,13 +23,13 @@ from typing import Callable, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from config import ENTRY_ZSCORE, EXIT_ZSCORE
-from data_fetcher import fetch_active_markets, build_price_matrix, clear_cache
-from pair_selector import (
+from polymarket_factors.config import ENTRY_ZSCORE, EXIT_ZSCORE
+from polymarket_factors.data_fetcher import fetch_active_markets, build_price_matrix, clear_cache
+from polymarket_factors.pair_selector import (
     select_pairs, compute_rolling_zscore, compute_zscores_fast,
     PairInfo,
 )
-from portfolio_arb import (
+from polymarket_factors.portfolio_arb import (
     build_baskets_from_prices,
     BASKET_ENTRY_ZSCORE, BASKET_EXIT_ZSCORE, ROLLING_WINDOW,
 )

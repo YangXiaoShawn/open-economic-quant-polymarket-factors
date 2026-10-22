@@ -29,7 +29,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sps
 
-from expanded_factor_research import (
+from polymarket_factors.expanded_factor_research import (
     FWD,
     MIN_HIST,
     MIN_PX,
@@ -56,7 +56,7 @@ def trade_spread_estimates(market_ids, since: str = "2025-06-01") -> pd.Series:
         median(YES-buy px) − median(1 − NO-buy px)
     then median across days per market.
     """
-    import db
+    from polymarket_factors import db
     ids = ",".join("'" + str(m).replace("'", "''") + "'" for m in market_ids)
     sql = f"""
     WITH t AS (
@@ -93,7 +93,7 @@ def hourly_spread_estimates(market_ids) -> pd.Series:
     bid-ask bounce, so their typical magnitude approximates the effective
     spread.  Aggregated inside DuckDB — only one row per market comes back.
     """
-    import db
+    from polymarket_factors import db
     ids = ",".join("'" + str(m).replace("'", "''") + "'" for m in market_ids)
     sql = f"""
     WITH h AS (

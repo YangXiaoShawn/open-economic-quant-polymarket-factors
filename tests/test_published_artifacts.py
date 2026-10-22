@@ -1,4 +1,4 @@
-"""Verify published artifact-funnel and out-of-sample factor IC tables."""
+"""Verify published artifact-funnel, out-of-sample factor IC tables, and oeq-core sample pipeline."""
 from __future__ import annotations
 
 import csv
@@ -8,8 +8,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "src" / "polymarket_factors"))
 
+from polymarket_factors import config, run_sample_pipeline
 from polymarket_factors.cli import main
 
 
@@ -32,8 +32,19 @@ class TestPolymarketPublishedArtifacts(unittest.TestCase):
         self.assertAlmostEqual(float(rows["PM-VOL"]["price_neutral_ic"]), -0.069, places=4)
         self.assertAlmostEqual(float(rows["PM-MOM"]["price_neutral_ic"]), -0.032, places=4)
 
+    def test_sample_pipeline_and_oeq_core_integration(self) -> None:
+        self.assertTrue(config.FIXTURES_DIR.exists())
+        result = run_sample_pipeline(root=ROOT)
+        self.assertEqual(result["claim_boundary_grade"], "BACKTEST_ASSOCIATION")
+        self.assertEqual(result["sample_fixture_periods"], 8)
+        self.assertEqual(result["verified_files"], 4)
+        pn_ic = result["sample_price_neutral_ic"]
+        self.assertLess(pn_ic["PM-MOM"]["mean_ic"], 0.0)
+        self.assertLess(pn_ic["PM-VOL"]["mean_ic"], 0.0)
+        self.assertGreater(result["sample_walkforward_gross_spread"], result["sample_walkforward_net_spread"])
+
     def test_cli_summary_runs(self) -> None:
-        self.assertEqual(main(["summary"]), 0)
+        self.assertEqual(main(["reproduce-sample"]), 0)
 
 
 if __name__ == "__main__":
