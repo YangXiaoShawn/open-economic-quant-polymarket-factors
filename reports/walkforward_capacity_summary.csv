@@ -1,0 +1,7 @@
+order_size_usd,effective_cost_bps,static_composite_net_sharpe,walkforward_ic_ir_net_sharpe,annualized_net_return_pct,capacity_verdict
+50,142.0,1.28,1.46,18.4,Positive net alpha (micro-ticket)
+100,168.5,1.12,1.31,15.9,Positive net alpha (retail sweet spot)
+200,206.0,0.84,1.04,11.8,Marginal positive net alpha (capacity ceiling ~$100-200)
+500,281.5,0.29,0.48,4.6,Sub-hurdle net alpha after order-book impact
+1000,369.0,-0.24,-0.06,-0.9,Negative net alpha (slippage exceeds factor spread)
+2500,546.5,-1.18,-0.98,-12.4,Severe book exhaustion

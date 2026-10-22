@@ -37,11 +37,14 @@ class TestPolymarketPublishedArtifacts(unittest.TestCase):
         result = run_sample_pipeline(root=ROOT)
         self.assertEqual(result["claim_boundary_grade"], "BACKTEST_ASSOCIATION")
         self.assertEqual(result["sample_fixture_periods"], 8)
-        self.assertEqual(result["verified_files"], 4)
+        self.assertEqual(result["capacity_tiers_audited"], 6)
+        self.assertEqual(result["verified_files"], 5)
         pn_ic = result["sample_price_neutral_ic"]
         self.assertLess(pn_ic["PM-MOM"]["mean_ic"], 0.0)
         self.assertLess(pn_ic["PM-VOL"]["mean_ic"], 0.0)
         self.assertGreater(result["sample_walkforward_gross_spread"], result["sample_walkforward_net_spread"])
+        cap_curve = result["sample_capacity_curve_net_spread"]
+        self.assertGreater(cap_curve["$100"], cap_curve["$1000"])
 
     def test_cli_summary_runs(self) -> None:
         self.assertEqual(main(["reproduce-sample"]), 0)

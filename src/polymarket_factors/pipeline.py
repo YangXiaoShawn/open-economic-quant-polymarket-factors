@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 from collections import defaultdict
+import math
 from pathlib import Path
 import sys
 
@@ -32,6 +33,7 @@ def run_sample_pipeline(root: Path = PROJECT_ROOT) -> dict[str, object]:
     funnel_path = root / "reports" / "artifact_funnel.csv"
     factors_path = root / "reports" / "expanded_factor_summary.csv"
     category_path = root / "reports" / "category_reversal_ic.csv"
+    capacity_path = root / "reports" / "walkforward_capacity_summary.csv"
 
     with fixture_path.open("r", encoding="utf-8") as fh:
         sample_rows = list(csv.DictReader(fh))
@@ -41,6 +43,8 @@ def run_sample_pipeline(root: Path = PROJECT_ROOT) -> dict[str, object]:
         factors = list(csv.DictReader(fh))
     with category_path.open("r", encoding="utf-8") as fh:
         categories = list(csv.DictReader(fh))
+    with capacity_path.open("r", encoding="utf-8") as fh:
+        capacity_rows = list(csv.DictReader(fh))
 
     by_date: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in sample_rows:
@@ -104,7 +108,7 @@ def run_sample_pipeline(root: Path = PROJECT_ROOT) -> dict[str, object]:
     manifest = build_run_manifest(
         project_slug="polymarket-factors",
         root=root,
-        files=[fixture_path, funnel_path, factors_path, category_path],
+        files=[fixture_path, funnel_path, factors_path, category_path, capacity_path],
         evidence_grade=boundary.grade.value,
     )
     checksum_errors = verify_manifest_checksums(root, manifest)
@@ -119,6 +123,14 @@ def run_sample_pipeline(root: Path = PROJECT_ROOT) -> dict[str, object]:
         for k, v in pn_ic_series.items()
     }
 
+    mean_gross = sum(oos_gross_spreads) / max(1, len(oos_gross_spreads))
+    capacity_curve_net = {}
+    for order_usd in (50, 100, 200, 500, 1000):
+        eff_bps = 140.0 * (1.0 + 1.25 * math.sqrt(order_usd / 1500.0))
+        capacity_curve_net[f"${order_usd}"] = round(
+            turnover_penalized_net_return(mean_gross, turnover=0.5, cost_bps=eff_bps), 4
+        )
+
     return {
         "project": "polymarket-factors",
         "evidence_grade": "backtest (association)",
@@ -128,9 +140,11 @@ def run_sample_pipeline(root: Path = PROJECT_ROOT) -> dict[str, object]:
         "final_mom_price_neutral_ic": float(funnel[-1]["price_neutral_ic"]),
         "genuine_factors": [row["factor"] for row in factors if "genuine" in row["verdict"]],
         "categories_audited": len(categories),
+        "capacity_tiers_audited": len(capacity_rows),
         "sample_fixture_periods": len(dates_sorted),
         "sample_price_neutral_ic": sample_pn_summary,
-        "sample_walkforward_gross_spread": round(sum(oos_gross_spreads) / max(1, len(oos_gross_spreads)), 4),
+        "sample_walkforward_gross_spread": round(mean_gross, 4),
         "sample_walkforward_net_spread": round(sum(oos_net_spreads) / max(1, len(oos_net_spreads)), 4),
+        "sample_capacity_curve_net_spread": capacity_curve_net,
         "verified_files": manifest["file_count"],
     }
