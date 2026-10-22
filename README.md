@@ -11,8 +11,8 @@ the mechanical artifacts that dominate prediction-market backtests are removed?
 position.
 
 Evidence grade: **backtest** (association). The full report is
-[`REPORT_EN.md`](REPORT_EN.md) (English) and [`REPORT.md`](REPORT.md) (Chinese),
-dated 2026-06-11; figures are in `report_figs_en/` and `report_figs/`.
+[`reports/REPORT_EN.md`](reports/REPORT_EN.md) (English) and [`reports/REPORT.md`](reports/REPORT.md) (Chinese),
+dated 2026-06-11; figures are in `reports/report_figs_en/` and `reports/report_figs/`.
 
 ## Data
 
@@ -109,18 +109,18 @@ hold at roughly **$100–200 per position**.
 ## Reproduce
 
 ```bash
-pip install -r requirements.txt
-python expanded_factor_research.py           # factor study
-python threefactor_search.py                 # 35-combination search
-python momrev_strategy.py                    # short-winners strategy
-python lead_lag_hourly.py                    # hourly lead-lag test
-python make_report_figs_en.py                # figures for REPORT_EN.md
+pip install -e ".[dev]"
+python src/polymarket_factors/expanded_factor_research.py           # factor study
+python src/polymarket_factors/threefactor_search.py                 # 35-combination search
+python src/polymarket_factors/momrev_strategy.py                    # short-winners strategy
+python src/polymarket_factors/lead_lag_hourly.py                    # hourly lead-lag test
+python src/polymarket_factors/make_report_figs_en.py                # figures for REPORT_EN.md
 python -m pytest tests/ -v
 ```
 
 `app.py` is a local FastAPI front end (`python -m uvicorn app:app --port 8000`) with the
 live scanner, backtest, factor and three-factor pages described in
-[`README_app.md`](README_app.md). Copy `.env.example` to `.env` to override the default
+[`reports/README_app.md`](reports/README_app.md). Copy `.env.example` to `.env` to override the default
 public API endpoints; no credentials are needed for public market data.
 
 Research period: June 2026.

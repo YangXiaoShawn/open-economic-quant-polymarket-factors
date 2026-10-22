@@ -1,0 +1,8 @@
+factor,label,raw_ic,raw_tstat,price_neutral_ic,price_neutral_tstat,fmb_bps_per_5d,fmb_tstat,verdict
+PM-LIQ,Illiquidity (reversed),-0.060,-6.6,-0.072,-8.2,-67,-3.5,genuine
+PM-VOL,Volatility (reversed),-0.067,-7.0,-0.069,-6.7,-209,-6.4,genuine
+PM-MOM,30-day momentum (reversed),-0.054,-5.5,-0.032,-3.4,-140,-8.3,genuine reversal
+PM-TTR,Time to resolution (reversed),-0.007,-0.8,-0.028,-3.5,-102,-4.7,weak but robust
+PM-DRIFT,Directional drift,-0.014,-1.5,-0.001,-0.1,0,0.0,artifact
+PM-EXTR,Price extremity,0.044,4.9,0.021,2.9,0,0.0,mostly price level
+PM-SPREAD,Spread proxy,0.047,5.7,0.026,2.7,0,0.0,mostly price level

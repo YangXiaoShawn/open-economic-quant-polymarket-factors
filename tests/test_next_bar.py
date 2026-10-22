@@ -6,7 +6,9 @@ not the same day as the signal.
 """
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "src" / "polymarket_factors"))
 
 import pandas as pd
 import numpy as np

@@ -1,0 +1,5 @@
+category,factor,price_neutral_abs_ic,tstat,significant
+Sports,PM-MOM,0.060,3.7,true
+Politics,PM-MOM,0.051,3.4,true
+Crypto,PM-MOM,0.012,0.8,false
+Finance,PM-MOM,0.009,0.6,false

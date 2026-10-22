@@ -1,20 +1,45 @@
 title: "Prediction-Market Factor Research: Polymarket"
 slug: polymarket-factors
-summary: Cross-sectional factor research on 4,000 Polymarket markets over 574 days, built around removing the mechanical artifacts that dominate prediction-market backtests.
-research_question: Do behavioral biases leave predictable cross-sectional structure in prediction-market prices once clipping, return-base, stale-quote and survival artifacts are removed?
+summary: Cross-sectional factor research on 4,000 Polymarket markets over 574 days, built around removing the five mechanical artifacts that dominate prediction-market backtests.
+research_question: Do behavioral biases leave predictable cross-sectional structure in prediction-market prices once clipping, return-base, skip-day, early-settlement, and stale-quote artifacts are removed?
+why_it_matters: Naive prediction-market backtests overstate predictability by an order of magnitude because prices are bounded in [0, 1], shorting YES means buying NO at 1 - p, and early resolution creates survival bias.
 research_fields:
   - Asset pricing
+  - Prediction markets
   - Market microstructure
 project_type: empirical-research
 status: public-research-snapshot
 authors:
   - Repository owner and maintainer
-sample_period: 2024-09-01 through 2026-03-28, including resolved markets; out-of-sample half 2025-06-28 through 2026-03-20.
+original_source: PolymarketFactors workspace project
+original_sample_period: 2024-09-01 through 2026-03-28 (4,000 markets x 574 days, including resolved markets).
+updated_sample_period: Factor signs set on 2024-10 to 2025-06; out-of-sample evaluation across 54 five-day periods from 2025-06-28 through 2026-03-20.
 data_sources:
+  - Polymarket Users dataset (Akey, Gregoire, Harvie, and Martineau 2026, CC BY 4.0)
+  - Polymarket-v1 on-chain OrderFilled and CTF database (Qin and Yang 2026, CC BY 4.0)
   - Polymarket Gamma and CLOB public APIs
-data_license: Market data are not redistributed; scripts fetch them from Polymarket's public APIs, subject to Polymarket's terms.
-code_license: No repository license declared; copyright remains with the repository owner.
-evidence_grade: backtest (association)
+data_license: Raw market archives are not redistributed; scripts read the public CC BY 4.0 academic datasets and public APIs. Published summary tables and figures are included under reports/.
+code_license: MIT
+reproduction_command: make reproduce-sample && make test
+expected_runtime: Deterministic verification and unit tests run in seconds; full 4,000-market panel recomputation takes about 5 minutes locally.
+outputs:
+  - src/polymarket_factors/
+  - reports/
+  - data/
+  - docs/
+  - tests/
+  - portfolio/
 github_url: https://github.com/YangXiaoShawn/open-economic-quant-polymarket-factors
+site_url: https://yangxiaoshawn.github.io/projects/polymarket-factors/
+dataset_url: https://huggingface.co/datasets/ShawnChamberlain/open-economic-quant-research-data/tree/main/PolymarketFactors
+space_url: https://huggingface.co/spaces/ShawnChamberlain/open-economic-quant-research-observatory?project=polymarket-factors
 last_updated: 2026-09-30
-limitations: Capacity about $100-200 per position; daily-close fills; the combined-portfolio weighting was chosen in sample and is not validated out of sample.
+limitations: Backtest association, not live execution. Capacity is roughly $100-200 per position; daily-close fills omit intraday slippage; the 50/50 combined-strategy weight was chosen in sample and is not validated out of sample.
+catalog:
+  field: prediction-markets
+  accent: amber
+  tags:
+    - Prediction Markets
+    - Factor Investing
+    - Backtest Hygiene
+  metric: 5 artifacts removed (-0.44 to -0.054 IC)

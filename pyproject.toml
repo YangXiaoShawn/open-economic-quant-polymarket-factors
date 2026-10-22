@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "polymarket-factors"
+version = "0.1.0"
+description = "Cross-sectional factor research and backtest artifact elimination on Polymarket prediction markets"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Yang Xiao" }]
+dependencies = [
+  "duckdb>=1.0",
+  "fastapi>=0.110",
+  "matplotlib>=3.8",
+  "numpy>=1.26",
+  "pandas>=2.1",
+  "python-dotenv>=1.0",
+  "requests>=2.31",
+  "scipy>=1.11",
+  "seaborn>=0.13",
+  "statsmodels>=0.14",
+  "tqdm>=4.66",
+  "uvicorn[standard]>=0.29",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.8",
+]
+
+[project.scripts]
+polymarket-factors = "polymarket_factors.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/polymarket_factors"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "src/polymarket_factors"]

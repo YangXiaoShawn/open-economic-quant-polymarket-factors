@@ -1,0 +1,6 @@
+stage_id,stage,raw_ic,price_neutral_ic,note
+1,Price clip + pct returns,-0.440,,Clipping to [0.03,0.97] censors forward returns
+2,No clip + delta_p + tradeable filter,-0.340,,Removes low-base pct_change explosion
+3,Skip-day entry (t+1 close),-0.105,-0.076,Eliminates shared endpoint noise at t
+4,Settlement-inclusive exits,-0.096,-0.071,Retains early-settled contracts inside window
+5,Executable entry (final),-0.054,-0.032,Requires active entry-day trade inside band

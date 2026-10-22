@@ -6,7 +6,9 @@ not the old hard-coded typical_price = 0.5 approximation.
 """
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "src" / "polymarket_factors"))
 
 import math
 import pandas as pd

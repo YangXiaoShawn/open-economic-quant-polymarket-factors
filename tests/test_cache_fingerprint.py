@@ -3,7 +3,9 @@ Unit tests for the cache fingerprint function (Fix 1.3).
 """
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "src" / "polymarket_factors"))
 
 from data_fetcher import _config_fingerprint
 from unittest.mock import patch

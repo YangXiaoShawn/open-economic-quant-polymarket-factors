@@ -6,7 +6,9 @@ denominator must be (1 - p_open), not p_open.
 """
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "src" / "polymarket_factors"))
 
 import math
 import pandas as pd
