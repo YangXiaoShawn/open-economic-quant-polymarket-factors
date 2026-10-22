@@ -1,4 +1,4 @@
-"""Deterministic sample reproduction and oeq-core verification pipeline for PolymarketFactors."""
+"""Deterministic sample reproduction and real CLOB validation pipeline for PolymarketFactors."""
 from __future__ import annotations
 
 import csv
@@ -27,8 +27,74 @@ from oeq_core import (
 )
 
 
+def _zscore(vals: list[float]) -> list[float]:
+    mean = sum(vals) / len(vals)
+    std = math.sqrt(sum((x - mean) ** 2 for x in vals) / max(1, len(vals) - 1)) or 1.0
+    return [(x - mean) / std for x in vals]
+
+
+def evaluate_real_clob_panel(root: Path = PROJECT_ROOT) -> dict[str, object]:
+    """Evaluate 7-factor ICs and walk-forward IC-IR composite on real Polymarket CLOB data."""
+    real_path = root / "data" / "fixtures" / "real_polymarket_panel.csv"
+    with real_path.open("r", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+
+    by_date: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in rows:
+        if 0.05 <= float(row["yes_price"]) <= 0.95 and int(row["days_to_resolution"]) > 3:
+            by_date[row["date"]].append(row)
+
+    dates_sorted = [d for d in sorted(by_date.keys()) if len(by_date[d]) >= 5]
+    pn_ic_series: dict[str, list[float]] = defaultdict(list)
+    oos_wf_ics: list[float] = []
+    oos_st_ics: list[float] = []
+    oos_wf_spreads: list[float] = []
+    oos_st_spreads: list[float] = []
+
+    comp_keys = ("PM-MOM", "PM-VOL", "PM-LIQ", "PM-SPREAD")
+    for idx, dt in enumerate(dates_sorted):
+        cross = by_date[dt]
+        prices = [float(r["yes_price"]) for r in cross]
+        fwd_dp = [float(r["fwd_delta_p_5d"]) for r in cross]
+        res_dp = residualize_quadratic(fwd_dp, prices)
+
+        signals = {
+            "PM-MOM": _zscore([float(r["mom_30d"]) for r in cross]),
+            "PM-VOL": _zscore([float(r["vol_30d"]) for r in cross]),
+            "PM-LIQ": _zscore([float(r["log_volume"]) for r in cross]),
+            "PM-SPREAD": _zscore([float(r["spread_proxy"]) for r in cross]),
+        }
+        if idx >= 12:
+            prior = {k: pn_ic_series[k][:idx] for k in comp_keys}
+            w = expanding_ic_ir_weights(prior, min_periods=12)
+            comp = [sum(w[k] * signals[k][i] for k in comp_keys) for i in range(len(cross))]
+            static = [
+                -0.4 * signals["PM-MOM"][i] - 0.4 * signals["PM-VOL"][i] - 0.2 * signals["PM-LIQ"][i]
+                for i in range(len(cross))
+            ]
+            oos_wf_ics.append(cross_sectional_rank_ic(comp, res_dp))
+            oos_st_ics.append(cross_sectional_rank_ic(static, res_dp))
+            oos_wf_spreads.append(quantile_long_short_spread(comp, res_dp, n_quantiles=3))
+            oos_st_spreads.append(quantile_long_short_spread(static, res_dp, n_quantiles=3))
+
+        for k, sig in signals.items():
+            pn_ic_series[k].append(cross_sectional_rank_ic(sig, res_dp))
+
+    return {
+        "real_clob_observations": len(rows),
+        "real_clob_periods": len(dates_sorted),
+        "real_walkforward_oos_periods": len(oos_wf_ics),
+        "real_walkforward_oos_ic": round(sum(oos_wf_ics) / len(oos_wf_ics), 4),
+        "real_walkforward_oos_nw_t": round(newey_west_tstat(oos_wf_ics, max_lag=3), 2),
+        "real_static_oos_ic": round(sum(oos_st_ics) / len(oos_st_ics), 4),
+        "real_static_oos_nw_t": round(newey_west_tstat(oos_st_ics, max_lag=3), 2),
+        "real_walkforward_gross_5d_spread_pp": round(sum(oos_wf_spreads) / len(oos_wf_spreads) * 100.0, 3),
+        "real_static_gross_5d_spread_pp": round(sum(oos_st_spreads) / len(oos_st_spreads) * 100.0, 3),
+    }
+
+
 def run_sample_pipeline(root: Path = PROJECT_ROOT) -> dict[str, object]:
-    """Execute end-to-end factor evaluation on sample_markets.csv and verify published tables."""
+    """Execute end-to-end factor evaluation on sample_markets.csv and real_polymarket_panel.csv."""
     fixture_path = root / "data" / "fixtures" / "sample_markets.csv"
     funnel_path = root / "reports" / "artifact_funnel.csv"
     factors_path = root / "reports" / "expanded_factor_summary.csv"
@@ -76,7 +142,6 @@ def run_sample_pipeline(root: Path = PROJECT_ROOT) -> dict[str, object]:
             raw_ic_series[name].append(cross_sectional_rank_ic(sig, fwd_dp))
             pn_ic_series[name].append(cross_sectional_rank_ic(sig, res_dp))
 
-        # Walk-forward out-of-sample IC-IR weighted composite after warmup
         if idx >= 3:
             prior_history = {k: pn_ic_series[k][:idx] for k in ("PM-MOM", "PM-VOL", "PM-LIQ")}
             weights = expanding_ic_ir_weights(prior_history, min_periods=3)
@@ -131,6 +196,8 @@ def run_sample_pipeline(root: Path = PROJECT_ROOT) -> dict[str, object]:
             turnover_penalized_net_return(mean_gross, turnover=0.5, cost_bps=eff_bps), 4
         )
 
+    real_clob_summary = evaluate_real_clob_panel(root=root)
+
     return {
         "project": "polymarket-factors",
         "evidence_grade": "backtest (association)",
@@ -147,4 +214,5 @@ def run_sample_pipeline(root: Path = PROJECT_ROOT) -> dict[str, object]:
         "sample_walkforward_net_spread": round(sum(oos_net_spreads) / max(1, len(oos_net_spreads)), 4),
         "sample_capacity_curve_net_spread": capacity_curve_net,
         "verified_files": manifest["file_count"],
+        **real_clob_summary,
     }

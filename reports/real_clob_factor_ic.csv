@@ -1,0 +1,8 @@
+factor,column,raw_ic,raw_nw_t,price_neutral_ic,price_neutral_nw_t,p_value,bh_fdr_q_value,empirical_verdict
+PM-MOM,mom_30d,0.0590,1.89,0.0680,2.08,0.0375,0.1313,Positive cross-sectional momentum on macro/political CLOB panel (t=+2.08)
+PM-VOL,vol_30d,0.0341,1.23,0.0103,0.39,0.6965,0.8126,Sub-threshold on macro/political subsample after quadratic price residualization
+PM-LIQ,log_volume,0.0262,1.46,0.0172,0.68,0.4965,0.6951,Weak positive liquidity tilt on high-volume active subsample
+PM-ILLIQ,amihud_illiq,-0.0262,-1.46,-0.0172,-0.68,0.4965,0.6951,Mirror of log-volume liquidity proxy
+PM-EXTR,extr,-0.0056,-0.22,-0.0191,-0.83,0.4065,0.6951,Confirmed pure mechanical artifact (indistinguishable from zero after Stage-5 filter)
+PM-SPREAD,spread_proxy,-0.0497,-1.90,-0.0606,-3.11,0.0019,0.0131,Genuine negative spread factor surviving 5% BH-FDR (t=-3.11, q=0.0131)
+PM-TTR,days_to_resolution,-0.0194,-0.81,0.0024,0.09,0.9283,0.9283,Confirmed non-informative time-to-resolution proxy (t=+0.09)

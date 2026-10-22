@@ -106,6 +106,14 @@ daily-close fills ignore intraday slippage, the arbitrage leg's profit factor (2
 depends on a few winners, and candidate markets trade only $1.6k–12k a day, so results
 hold at roughly **$100–200 per position**.
 
+### v2.0 Real CLOB Panel Validation (`data/fixtures/real_polymarket_panel.csv`)
+
+Evaluated on 1,810 non-overlapping 5-day observations across 70 active and resolved Polymarket binary contracts and 82 rebalancing dates (`2024-01-05` to `2026-10-22`, `reports/real_clob_factor_ic.csv` and `reports/walkforward_capacity_summary.csv`):
+
+- **Quadratic Price-Neutral Factor Hygiene**: After Stage-5 executable filtering and residualizing forward $\Delta p$ on $[1, p, p^2]$, `PM-SPREAD` survives 5% Benjamini-Hochberg FDR (`price_neutral_IC = -0.0606`, Newey-West $t = -3.11$, $q = 0.0131$) and `PM-MOM` exhibits positive cross-sectional continuation on high-volume macro/political contracts (`price_neutral_IC = +0.0680`, $t = +2.08$), while `PM-EXTR` ($2|p - 0.5|$) collapses to statistical noise (`price_neutral_IC = -0.0191`, $t = -0.83$, $q = 0.6951$).
+- **Walk-Forward Expanding IC-IR Composite vs Fixed-Sign Baseline**: Across 70 out-of-sample 5-day periods (after a 12-period warmup), `oeq_core.expanding_ic_ir_weights` achieves out-of-sample Rank IC **+0.0671** (Newey-West $t = +3.24$) and gross 5-day tercile (`Q3 - Q1`) spread **+0.475 pp** (+47.5 bps), compared with **-0.0240** ($t = -0.77$) and **-0.290 pp** for the static fixed-sign baseline.
+- **Maker vs Taker Capacity Split**: Even on the tightest spread quartile (`Q25 = 155.0 bps`), crossing the book as a taker at 50% 5-day turnover yields negative net spread (`-0.319 pp` at `$50` to `-0.384 pp` at `$1,000`), whereas passive limit-order execution near mid (`26.7` to `32.5 bps` effective adverse selection + impact) preserves **+0.341 pp** at `$50` and **+0.312 pp** at `$1,000` per 5-day period.
+
 ## Reproduce
 
 ```bash

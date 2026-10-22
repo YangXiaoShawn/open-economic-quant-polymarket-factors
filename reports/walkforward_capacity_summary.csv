@@ -1,7 +1,7 @@
-order_size_usd,effective_cost_bps,static_composite_net_sharpe,walkforward_ic_ir_net_sharpe,annualized_net_return_pct,capacity_verdict
-50,142.0,1.28,1.46,18.4,Positive net alpha (micro-ticket)
-100,168.5,1.12,1.31,15.9,Positive net alpha (retail sweet spot)
-200,206.0,0.84,1.04,11.8,Marginal positive net alpha (capacity ceiling ~$100-200)
-500,281.5,0.29,0.48,4.6,Sub-hurdle net alpha after order-book impact
-1000,369.0,-0.24,-0.06,-0.9,Negative net alpha (slippage exceeds factor spread)
-2500,546.5,-1.18,-0.98,-12.4,Severe book exhaustion
+order_size_usd,taker_q25_cost_bps,passive_maker_cost_bps,static_gross_5d_spread_pp,walkforward_gross_5d_spread_pp,static_net_taker_5d_spread_pp,walkforward_net_taker_5d_spread_pp,walkforward_net_maker_5d_spread_pp,capacity_verdict
+50,158.73,26.69,-0.290,0.475,-1.084,-0.319,0.341,Positive net spread only via passive maker (taker -0.319 pp)
+100,160.28,27.38,-0.290,0.475,-1.092,-0.327,0.338,Positive net spread only via passive maker (taker -0.327 pp)
+200,162.46,28.37,-0.290,0.475,-1.103,-0.338,0.333,Positive net spread only via passive maker (taker -0.338 pp)
+500,166.80,30.33,-0.290,0.475,-1.124,-0.359,0.323,Positive net spread only via passive maker (taker -0.359 pp)
+1000,171.69,32.54,-0.290,0.475,-1.149,-0.384,0.312,Positive net spread only via passive maker (taker -0.384 pp)
+2500,181.39,36.92,-0.290,0.475,-1.197,-0.432,0.290,Passive maker +0.290 pp; taker deeply negative (-0.432 pp)

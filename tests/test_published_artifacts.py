@@ -45,6 +45,31 @@ class TestPolymarketPublishedArtifacts(unittest.TestCase):
         self.assertGreater(result["sample_walkforward_gross_spread"], result["sample_walkforward_net_spread"])
         cap_curve = result["sample_capacity_curve_net_spread"]
         self.assertGreater(cap_curve["$100"], cap_curve["$1000"])
+        self.assertEqual(result["real_clob_observations"], 1810)
+        self.assertEqual(result["real_clob_periods"], 82)
+        self.assertEqual(result["real_walkforward_oos_periods"], 70)
+        self.assertAlmostEqual(result["real_walkforward_oos_ic"], 0.0671, places=4)
+        self.assertAlmostEqual(result["real_walkforward_oos_nw_t"], 3.24, places=2)
+        self.assertAlmostEqual(result["real_static_oos_ic"], -0.0240, places=4)
+        self.assertAlmostEqual(result["real_walkforward_gross_5d_spread_pp"], 0.475, places=3)
+        self.assertAlmostEqual(result["real_static_gross_5d_spread_pp"], -0.290, places=3)
+
+    def test_real_clob_factor_ic_and_capacity_tables(self) -> None:
+        ic_path = ROOT / "reports" / "real_clob_factor_ic.csv"
+        with ic_path.open("r", encoding="utf-8") as fh:
+            ic_rows = {r["factor"]: r for r in csv.DictReader(fh)}
+        self.assertEqual(len(ic_rows), 7)
+        self.assertAlmostEqual(float(ic_rows["PM-SPREAD"]["price_neutral_ic"]), -0.0606, places=4)
+        self.assertAlmostEqual(float(ic_rows["PM-SPREAD"]["bh_fdr_q_value"]), 0.0131, places=4)
+        self.assertAlmostEqual(float(ic_rows["PM-MOM"]["price_neutral_ic"]), 0.0680, places=4)
+        self.assertAlmostEqual(float(ic_rows["PM-EXTR"]["price_neutral_ic"]), -0.0191, places=4)
+
+        cap_path = ROOT / "reports" / "walkforward_capacity_summary.csv"
+        with cap_path.open("r", encoding="utf-8") as fh:
+            cap_rows = {int(r["order_size_usd"]): r for r in csv.DictReader(fh)}
+        self.assertEqual(len(cap_rows), 6)
+        self.assertLess(float(cap_rows[100]["walkforward_net_taker_5d_spread_pp"]), 0.0)
+        self.assertGreater(float(cap_rows[100]["walkforward_net_maker_5d_spread_pp"]), 0.30)
 
     def test_cli_summary_runs(self) -> None:
         self.assertEqual(main(["reproduce-sample"]), 0)
