@@ -8,5 +8,5 @@ cache/
 logs/
 *.pkl
 /*.png
-data/
+data/raw/
 .DS_Store
