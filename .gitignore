@@ -8,5 +8,8 @@ cache/
 logs/
 *.pkl
 /*.png
-data/raw/
+data/*
+# Small deterministic fixtures read by the tests and the sample pipeline.
+!data/DATA_ACCESS.md
+!data/fixtures/
 .DS_Store
